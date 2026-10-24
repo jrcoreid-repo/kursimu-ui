@@ -1,0 +1,16 @@
+# Confidential measurements and patient identifiers must remain local
+kursimu_data/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.env
+*.log
+*.csv
+*.jsonl
+music/*.mp3
+music/*.wav
+music/*.ogg
+*.zip
+.vscode/
+.idea/
