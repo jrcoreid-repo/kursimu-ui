@@ -849,7 +849,8 @@ class KursiMuApp:
         if not force and self.last_layout_size==key:
             return
         self.last_layout_size=key
-        dpg.configure_item('main',width=width,height=height)
+        dpg.configure_item('main',width=width,height=height,
+                           no_scrollbar=height>=900)
         dpg.set_item_pos('btn_close',[max(8,width-207),8])
         content_width=width-44
         button_width=max(150,(content_width-30)//4)
@@ -860,11 +861,12 @@ class KursiMuApp:
         dpg.configure_item('patient_id',width=190+extra//3)
         dpg.configure_item('connection_spacer',width=max(8,width-1030))
         # Roomier cards and result strip, with a compact control bar and logo footer.
-        toolbar_h=160
-        footer_h=50 if height>=850 else 44
-        comparison_h=148 if height>=900 else 138
-        available=height-toolbar_h-footer_h-comparison_h-125
-        panel_h=max(370,min(520,available))
+        toolbar_h=174
+        footer_h=54 if height>=850 else 44
+        comparison_h=157 if height>=850 else 143
+        available=height-toolbar_h-footer_h-comparison_h-126
+        # A 520px panel on Full HD; smaller screens use a compact mode.
+        panel_h=max(360,min(520,available))
         panel_w=max(255,(width-52)//3)
         dpg.configure_item('toolbar',height=toolbar_h)
         for panel in ('panel_foot','panel_awal','panel_akhir'):
@@ -878,11 +880,24 @@ class KursiMuApp:
                 dpg.configure_item(f'bp_box_{target}_{metric}',width=big_w)
             for metric in ('pulse','pp','map'):
                 dpg.configure_item(f'metric_box_{target}_{metric}',width=small_w)
+        # On smaller displays, shorten internal tiles instead of clipping
+        # measurement controls or hiding Sesi/Waktu at the bottom.
+        compact=panel_h<450
+        for target in ('awal','akhir'):
+            for metric in ('sys','dia'):
+                dpg.configure_item(f'bp_box_{target}_{metric}',
+                                   height=110 if compact else 132)
+            for metric in ('pulse','pp','map'):
+                dpg.configure_item(f'metric_box_{target}_{metric}',
+                                   height=73 if compact else 89)
+            dpg.configure_item(f'btn_{target}',height=50 if compact else 60)
+            dpg.configure_item(f'{target}_detail',show=not compact)
+
         delta_w=max(110,(width-65)//5)
         for metric in ('sys','dia','pulse','pp','map'):
             dpg.configure_item(f'delta_box_{metric}',width=delta_w)
         # Scale chart to actual remaining space, including axis and card padding.
-        chart_h=max(102,min(247,panel_h-233))
+        chart_h=max(100,min(260,panel_h-231))
         dpg.configure_item('foot_plot',height=chart_h)
         if self.logos:
             max_img_h=max(24,footer_h-18)
