@@ -481,6 +481,11 @@ class KursiMuApp:
                 dpg.add_theme_color(dpg.mvThemeCol_Border,LINE)
                 dpg.add_theme_style(dpg.mvStyleVar_ChildRounding,12)
                 dpg.add_theme_style(dpg.mvStyleVar_ChildBorderSize,1)
+        with dpg.theme(tag='theme_measure'):
+            with dpg.theme_component(dpg.mvButton):
+                dpg.add_theme_color(dpg.mvThemeCol_Button,GREEN)
+                dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered,DARK_GREEN)
+                dpg.add_theme_color(dpg.mvThemeCol_Text,WHITE)
         with dpg.theme(tag='theme_pause'):
             with dpg.theme_component(dpg.mvButton):
                 dpg.add_theme_color(dpg.mvThemeCol_Button,(206,146,42,255))
@@ -489,6 +494,7 @@ class KursiMuApp:
             with dpg.theme_component(dpg.mvButton):
                 dpg.add_theme_color(dpg.mvThemeCol_Button,(188,76,78,255))
                 dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered,(155,56,59,255))
+                dpg.add_theme_color(dpg.mvThemeCol_Text,WHITE)
         with dpg.theme(tag='theme_music'):
             with dpg.theme_component(dpg.mvButton):
                 dpg.add_theme_color(dpg.mvThemeCol_Button,BLUE)
@@ -591,8 +597,8 @@ class KursiMuApp:
                            width=-1,height=54,
                            callback=lambda s,a,u: self.start_bp(u),
                            user_data=target)
-            if target=='akhir':
-                dpg.bind_item_theme(f'btn_{target}','theme_akhir')
+            dpg.bind_item_theme(f'btn_{target}',
+                                'theme_akhir' if target=='akhir' else 'theme_measure')
             dpg.add_spacer(height=7)
             dpg.add_text('Belum ada pengukuran',tag=f'{target}_detail',
                          color=MUTED)
@@ -744,6 +750,7 @@ class KursiMuApp:
                 with dpg.group(horizontal=True,tag='action_row'):
                     dpg.add_button(label='MULAI',tag='btn_start',height=47,width=250,
                                    callback=self.begin_relaxation)
+                    dpg.bind_item_theme('btn_start','theme_measure')
                     dpg.add_button(label='PAUSE',tag='btn_pause',height=47,width=250,
                                    callback=self.pause_relaxation)
                     dpg.bind_item_theme('btn_pause','theme_pause')
@@ -826,7 +833,7 @@ class KursiMuApp:
         comparison_h=116 if height>=820 else 96
         # Reserve header and outer gaps (approx. 139px).
         available=height-toolbar_h-footer_h-comparison_h-139
-        panel_h=max(258,min(470,available))
+        panel_h=max(305,min(450,available))
         panel_w=max(255,(width-52)//3)
         dpg.configure_item('toolbar',height=toolbar_h)
         for panel in ('panel_foot','panel_awal','panel_akhir'):
@@ -849,7 +856,7 @@ class KursiMuApp:
 
         # Chart is sized from remaining space, not a fixed graph height.
         # Leave room for header, gauge, counts, title, padding, and axes.
-        chart_h=max(92,min(245,panel_h-212))
+        chart_h=max(90,min(198,panel_h-230))
         dpg.configure_item('foot_plot',height=chart_h)
 
         if self.logos:
