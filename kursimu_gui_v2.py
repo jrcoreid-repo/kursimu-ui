@@ -1518,33 +1518,39 @@ class KursiMuApp:
         dpg.set_value('activity_line',d.guidance)
         dpg.configure_item('activity_line',color=color)
 
+
     def start_bp(self,target):
-        if self.pending_target:
-            self.log('Pengukuran sebelumnya belum selesai')
+        d=self.workflow()
+        allowed=d.can_measure_awal if target=='awal' else d.can_measure_akhir
+        if not allowed:
+            self.log('UKUR '+target.upper()+' ditolak: '+d.guidance)
             return
-        if target=='awal' and self.session_state!='IDLE':
-            self.log('BP AWAL diukur sebelum sesi relaksasi dimulai')
-            return
-        if target=='akhir' and self.session_state not in ('RUNNING','PAUSED'):
-            self.log('BP AKHIR diukur saat/di akhir sesi relaksasi')
-            return
+        if target=='awal':
+            # Freeze identity before controlling the BP button.
+            self.baseline_identity=(
+                (dpg.get_value('patient_name') or '').strip(),
+                (dpg.get_value('patient_id') or '').strip()
+            )
         if self.demo:
             self.pending_target={'target':target,'baseline':self.demo_session,'accepted':True}
             self.demo_target=target
             self.demo_due=time.monotonic()+2.2
-            self.log(f'[DEMO] Mengukur BP {target.upper()}')
             self.update_buttons()
+            self.log('[DEMO] Mengukur BP '+target.upper())
             return
-        if not self.ble_connected or self.bp_status is None:
-            self.log('BP KursiMu belum terhubung')
-            return
-        if self.bp_status['state'] in (1,2,3,4) or self.bp_status['pending']:
-            self.log('BP sedang mengukur / hasil menunggu ACK')
-            return
-        self.pending_target={'target':target,'baseline':self.bp_status['total'],'accepted':False}
+        self.pending_target={'target':target,
+                             'baseline':self.bp_status['total'],
+                             'accepted':False}
+        # Once per click. No automatic retry or START on BLE reconnect.
         self.ble_requests.put({'op':OP_START,'target':target})
-        self.log(f'START satu kali untuk BP {target.upper()}')
         self.update_buttons()
+        self.log('START BP '+target.upper()+' sekali, menunggu pompa')
+
+    def unlock_failed_awal(self):
+        if self.session_state=='IDLE' and self.readings['awal'] is None:
+            if self.pending_target is None:
+                self.baseline_identity=None
+                self.update_buttons()
 
     def set_panel(self,target,result):
         self.readings[target]=dict(result)
@@ -1581,7 +1587,8 @@ class KursiMuApp:
     def handle_result(self,result):
         assigned=False
         if (self.pending_target and self.pending_target['accepted']
-                and result['session']>self.pending_target['baseline']):
+                and result['session']>self.pending_target['baseline']
+                and self.readings[self.pending_target['target']] is None):
             target=self.pending_target['target']
             self.set_panel(target,result)
             self.pending_target=None
@@ -1594,15 +1601,20 @@ class KursiMuApp:
             self.log(f'Recovery hasil BP #{result["session"]}; perlu pilih AWAL/AKHIR')
         self.update_buttons()
 
+
     def assign_unassigned(self,target):
         if self.unassigned is None:
             return
-        if target=='awal' and self.session_state not in ('IDLE',):
-            self.log('Hasil AWAL hanya dapat ditetapkan sebelum sesi dimulai')
+        d=self.workflow()
+        allowed=d.can_measure_awal if target=='awal' else d.can_measure_akhir
+        if not allowed:
+            self.log('Hasil BP belum dapat dipasangkan: '+d.guidance)
             return
-        if target=='akhir' and self.session_state not in ('RUNNING','PAUSED'):
-            self.log('Hasil AKHIR hanya dapat ditetapkan selama sesi aktif')
-            return
+        if target=='awal':
+            self.baseline_identity=(
+                (dpg.get_value('patient_name') or '').strip(),
+                (dpg.get_value('patient_id') or '').strip()
+            )
         self.set_panel(target,self.unassigned)
         self.unassigned=None
         dpg.set_value('unassigned_label','Tidak ada')
