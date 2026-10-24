@@ -1623,13 +1623,14 @@ class KursiMuApp:
         self.update_buttons()
 
     def new_session(self,*_):
-        if self.session_state in ('RUNNING','PAUSED'):
-            self.log('Tekan SELESAI dulu sebelum membuat sesi baru')
+        if self.session_state!='FINISHED':
+            self.log('SESI BARU hanya dapat dilakukan setelah hasil lengkap tersimpan')
             return
         if self.pending_target:
             self.log('Pengukuran BP masih berlangsung')
             return
         self.readings={'awal':None,'akhir':None}
+        self.baseline_identity=None
         self.unassigned=None
         self.pending_target=None
         self.session_state='IDLE'
@@ -1678,11 +1679,15 @@ class KursiMuApp:
             if not self.ble_connected:
                 self.bp_status=None
                 dpg.set_value('bp_state','TIDAK TERHUBUNG')
+                self.pause_on_disconnect('BP KursiMu')
             self.update_buttons()
         elif typ=='serial':
             self.serial_connected=item['connected']
             dpg.set_value('serial_state',item['text'])
             dpg.configure_item('serial_state',color=GREEN if self.serial_connected else ORANGE)
+            if not self.serial_connected:
+                self.pause_on_disconnect('Pijakan Sensor')
+            self.update_buttons()
         elif typ=='foot':
             self.update_foot(item['level'])
         elif typ=='status':
@@ -1695,6 +1700,7 @@ class KursiMuApp:
             if self.pending_target and self.pending_target['accepted'] and code==6:
                 self.log('BP gagal atau timeout. Hasil tidak dipasangkan')
                 self.pending_target=None
+                self.unlock_failed_awal()
             if previous is None or previous['state']!=code:
                 self.log(f'BP {state}, total #{self.bp_status["total"]}')
             self.update_buttons()
@@ -1709,12 +1715,14 @@ class KursiMuApp:
                 else:
                     self.log(f'START ditolak: ACK_{desc}')
                     self.pending_target=None
+                    self.unlock_failed_awal()
             self.update_buttons()
         elif typ=='command_error':
             self.log(f'Perintah BP gagal: {item["message"]}')
             if item.get('op')==OP_START:
                 # Result may still arrive; never repeat a potentially issued START.
                 self.pending_target=None
+                self.unlock_failed_awal()
             self.update_buttons()
         elif typ=='result':
             self.handle_result(item['value'])
@@ -1737,7 +1745,7 @@ class KursiMuApp:
             self.handle_result(result)
 
     def request_close(self,*_):
-        if self.session_state in ('RUNNING','PAUSED'):
+        if self.session_state in ('RUNNING','PAUSED','SAVE_FAILED'):
             dpg.show_item('confirm_close')
         else:
             dpg.stop_dearpygui()
@@ -1747,8 +1755,10 @@ class KursiMuApp:
             self.log('BP masih mengukur. Tunggu selesai sebelum keluar.')
             dpg.hide_item('confirm_close')
             return
-        if self.session_state in ('RUNNING','PAUSED'):
-            self.finish_relaxation()
+        if self.session_state in ('RUNNING','PAUSED','SAVE_FAILED'):
+            if not self.finish_relaxation():
+                dpg.hide_item('confirm_close')
+                return
         dpg.stop_dearpygui()
 
     def run(self):
@@ -1780,9 +1790,16 @@ class KursiMuApp:
                 dpg.render_dearpygui_frame()
         finally:
             if self.session_state in ('RUNNING','PAUSED'):
-                # Best-effort summary even if interrupted with BP acquisition pending.
-                self.pending_target=None
-                self.finish_relaxation()
+                # Only a complete AWAL/AKHIR pair creates the normal summary.
+                if self.readings['awal'] and self.readings['akhir'] and not self.pending_target:
+                    self.finish_relaxation()
+                if self.foot_file:
+                    try:
+                        self.foot_file.flush()
+                        os.fsync(self.foot_file.fileno())
+                    finally:
+                        self.foot_file.close()
+                        self.foot_file=None
             elif self.foot_file:
                 self.foot_file.close()
             self.stop_music()
