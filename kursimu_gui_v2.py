@@ -1600,7 +1600,33 @@ class KursiMuApp:
 def main():
     parser=argparse.ArgumentParser(description='KursiMu - DearPyGui white/green desktop')
     parser.add_argument('--demo',action='store_true',help='Simulated sensor values (not actual measurements)')
+    parser.add_argument('--test-music',action='store_true',
+                        help='Diagnose MP3 discovery and decoding without opening the GUI')
+    parser.add_argument('--music-file',type=Path,default=None,
+                        help='Optional audio file to check with --test-music')
     args=parser.parse_args()
+    if args.test_music:
+        song=args.music_file.expanduser() if args.music_file else remembered_music()
+        print('[MUSIC] Folder:',MUSIC_DIR)
+        if song is None or not song.is_file():
+            print('[MUSIC] ERROR: MP3/WAV/OGG not found.')
+            print('[MUSIC] Files:',[p.name for p in MUSIC_DIR.iterdir()])
+            raise SystemExit(1)
+        print('[MUSIC] Found:',song.resolve())
+        if pygame is None:
+            print('[MUSIC] ERROR: pygame-ce is not installed. Run: pip install pygame-ce')
+            raise SystemExit(2)
+        try:
+            pygame.mixer.init()
+            pygame.mixer.music.load(str(song.resolve()))
+            print('[MUSIC] OK: file recognized and decoded by pygame-ce')
+            pygame.mixer.music.unload()
+        except Exception as exc:
+            print('[MUSIC] Decoder/audio error:',repr(exc))
+            raise SystemExit(3)
+        finally:
+            pygame.mixer.quit()
+        return
     KursiMuApp(demo=args.demo).run()
 
 
