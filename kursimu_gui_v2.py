@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.6.1 - shorten foot chart by 15 percent to avoid clipping.
+KursiMu GUI v2.7 - light medical music picker and native Windows browse.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -76,7 +76,7 @@ def discover_music() -> Path | None:
     """Discover any playable-extension file under music/, regardless of filename."""
     try:
         songs = sorted(
-            (p.resolve() for p in MUSIC_DIR.iterdir()
+            (p.resolve() for p in MUSIC_DIR.rglob("*")
              if p.is_file() and p.suffix.lower() in MUSIC_EXTENSIONS
              and not p.name.startswith(".")),
             key=lambda p: (p.name.casefold() != "relaksasi.mp3",
@@ -463,6 +463,7 @@ class KursiMuApp:
         self.foot_file: TextIO | None = None
         self.foot_writer = None
         self.music_path = remembered_music()
+        self.music_choices: dict[str, Path] = {}
         self.audio_ready = False
         self.audio_playing = False
         self.audio_error = ""
@@ -534,6 +535,19 @@ class KursiMuApp:
                 dpg.add_theme_style(dpg.mvStyleVar_FrameRounding,7)
                 dpg.add_theme_style(dpg.mvStyleVar_ChildRounding,12)
                 dpg.add_theme_style(dpg.mvStyleVar_WindowBorderSize,0)
+        with dpg.theme(tag='theme_music_dialog'):
+            with dpg.theme_component(dpg.mvAll):
+                dpg.add_theme_color(dpg.mvThemeCol_WindowBg, WHITE)
+                dpg.add_theme_color(dpg.mvThemeCol_ChildBg, WHITE)
+                dpg.add_theme_color(dpg.mvThemeCol_PopupBg, WHITE)
+                dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (245, 250, 247, 255))
+                dpg.add_theme_color(dpg.mvThemeCol_TitleBg, DARK_GREEN)
+                dpg.add_theme_color(dpg.mvThemeCol_TitleBgActive, GREEN)
+                dpg.add_theme_color(dpg.mvThemeCol_ModalWindowDimBg, (23, 43, 33, 130))
+                dpg.add_theme_color(dpg.mvThemeCol_Text, INK)
+                dpg.add_theme_style(dpg.mvStyleVar_WindowPadding, 22, 18)
+                dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing, 10, 9)
+                dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 8)
         with dpg.theme(tag='theme_foot_progress'):
             with dpg.theme_component(dpg.mvProgressBar):
                 dpg.add_theme_color(dpg.mvThemeCol_PlotHistogram, GREEN)
@@ -895,18 +909,44 @@ class KursiMuApp:
                 self.add_bp_panel('akhir','03','AKHIR')
             self.add_comparison_panel()
             self.add_image_footer()
-        with dpg.file_dialog(tag='music_dialog', show=False, directory_selector=False,
-                             callback=self.choose_music,
-                             cancel_callback=lambda *args: None,
-                             default_path=str(MUSIC_DIR), modal=True,
-                             width=880, height=560):
-            dpg.add_file_extension('.*', color=(120,160,145,255))
-            dpg.add_file_extension('.mp3', color=(32,132,82,255))
-            dpg.add_file_extension('.wav', color=(32,132,82,255))
-            dpg.add_file_extension('.ogg', color=(32,132,82,255))
-            dpg.add_file_extension('.MP3')
-            dpg.add_file_extension('.WAV')
-            dpg.add_file_extension('.OGG')
+        # Custom white/green picker, replacing DearPyGui's dark file_dialog.
+        with dpg.window(tag='music_dialog',
+                        label='Pilih Musik Relaksasi',
+                        modal=True, show=False,
+                        no_resize=True, no_scrollbar=True,
+                        width=800, height=395):
+            dpg.add_text('MUSIK RELAKSASI', color=DARK_GREEN)
+            dpg.add_text('Pilih satu lagu MP3, WAV, atau OGG dari folder music atau komputer.', color=MUTED)
+            dpg.add_spacer(height=7)
+            dpg.add_text('LAGU DALAM FOLDER MUSIC', color=DARK_GREEN)
+            with dpg.group(horizontal=True):
+                dpg.add_combo(tag='music_file_choices',
+                              items=['Belum ada musik'],
+                              default_value='Belum ada musik',
+                              width=570,
+                              callback=self.music_dropdown_changed)
+                dpg.add_button(label='SCAN ULANG', width=150,
+                               callback=self.scan_music_folder)
+            dpg.add_spacer(height=7)
+            dpg.add_text('LOKASI FILE MUSIK', color=DARK_GREEN)
+            dpg.add_input_text(tag='music_path_entry',
+                               hint='Contoh: C:\\Users\\...\\Downloads\\musik.mp3',
+                               width=-1)
+            dpg.add_spacer(height=8)
+            with dpg.group(horizontal=True):
+                dpg.add_button(label='PILIH DARI WINDOWS', tag='btn_browse_music',
+                               width=235, height=43,
+                               callback=self.browse_music_windows)
+                dpg.bind_item_theme('btn_browse_music','theme_music')
+                dpg.add_button(label='GUNAKAN MUSIK', tag='btn_use_music',
+                               width=205, height=43, callback=self.use_music)
+                dpg.bind_item_theme('btn_use_music','theme_measure')
+                dpg.add_button(label='BATAL', width=100, height=43,
+                               callback=lambda *args: dpg.hide_item('music_dialog'))
+            dpg.add_separator()
+            dpg.add_text('Belum ada file dipilih.',
+                         tag='music_picker_status', color=MUTED, wrap=735)
+        dpg.bind_item_theme('music_dialog','theme_music_dialog')
         with dpg.window(tag='confirm_close',label='Konfirmasi Keluar',modal=True,
                         show=False,no_resize=True,width=470,height=165):
             dpg.add_text('Sesi sedang berlangsung. Simpan hasil dan tutup aplikasi?')
@@ -1072,55 +1112,135 @@ class KursiMuApp:
         return f'{seconds//3600:02}:{seconds%3600//60:02}:{seconds%60:02}'
 
 
+
     def refresh_music(self, force=False):
-        # Refresh automatically if the user copies a track into music/
-        # while the GUI is open. A remembered manual choice takes priority.
+        # Auto-discovery: recognizes MP3 in music/ under any filename.
         if force or not self.music_path or not self.music_path.is_file():
             self.music_path = remembered_music()
         if self.music_path and self.music_path.is_file():
-            dpg.set_value('music_label',self.music_path.name)
+            dpg.set_value('music_label', self.music_path.name)
             return True
-        dpg.set_value('music_label','Belum ditemukan · cek folder music/')
+        dpg.set_value('music_label', 'Belum ada lagu - klik PILIH MUSIK')
         return False
+
+    def scan_music_folder(self, *_):
+        # Discover all local audio files, including music/ subfolders.
+        found = []
+        try:
+            found = sorted(
+                (p.resolve() for p in MUSIC_DIR.rglob('*')
+                 if p.is_file() and p.suffix.lower() in MUSIC_EXTENSIONS),
+                key=lambda p: (p.suffix.lower() != '.mp3', str(p).casefold())
+            )
+        except OSError as exc:
+            self.log('Tidak bisa mengakses folder musik: '+str(exc))
+        self.music_choices = {}
+        for p in found:
+            name = str(p.relative_to(MUSIC_DIR))
+            self.music_choices[name] = p
+        names = list(self.music_choices)
+        if names:
+            dpg.configure_item('music_file_choices', items=names)
+            selected_name = next(
+                (n for n,p in self.music_choices.items()
+                 if self.music_path and p == self.music_path.resolve()),
+                names[0]
+            )
+            dpg.set_value('music_file_choices', selected_name)
+            if not dpg.get_value('music_path_entry'):
+                dpg.set_value('music_path_entry', str(self.music_choices[selected_name]))
+            dpg.set_value('music_picker_status',
+                          f'Ditemukan {len(names)} file audio di folder music.')
+        else:
+            dpg.configure_item('music_file_choices',
+                               items=['Tidak ada lagu di folder music'])
+            dpg.set_value('music_file_choices','Tidak ada lagu di folder music')
+            dpg.set_value('music_picker_status',
+                          'Folder music belum berisi MP3/WAV/OGG. '
+                          'Pilih lagu dari Windows atau tempel lokasi file lengkap.')
+
+    def music_dropdown_changed(self, sender, app_data, user_data=None):
+        selected = self.music_choices.get(app_data)
+        if selected:
+            dpg.set_value('music_path_entry', str(selected))
+            dpg.set_value('music_picker_status', selected.name)
 
     def open_music_picker(self, *_):
         self.refresh_music()
-        self.log('Pilih MP3/WAV/OGG; folder awal: '+str(MUSIC_DIR))
+        dpg.set_value('music_path_entry',
+                      str(self.music_path) if self.music_path else '')
+        self.scan_music_folder()
         dpg.show_item('music_dialog')
 
-    def choose_music(self, sender, app_data, user_data=None):
-        # DPG versions can return file_path_name or selections.
-        app_data = app_data or {}
-        name = app_data.get('file_path_name')
-        if not name and app_data.get('selections'):
-            name = next(iter(app_data['selections'].values()), None)
-        if not name:
-            self.log('Belum ada file yang dipilih')
+    def browse_music_windows(self, *_):
+        # A normal Windows Open File dialog, rather than DearPyGui's dark
+        # built-in file dialog. Manual path entry remains available as fallback.
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+            root = tk.Tk()
+            root.withdraw()
+            root.attributes('-topmost', True)
+            try:
+                initial = self.music_path.parent if self.music_path and self.music_path.is_file() else MUSIC_DIR
+                file_path = filedialog.askopenfilename(
+                    parent=root,
+                    title='Pilih musik relaksasi KursiMu',
+                    initialdir=str(initial),
+                    filetypes=[
+                        ('Audio MP3 / WAV / OGG', '*.mp3 *.wav *.ogg'),
+                        ('MP3', '*.mp3'),
+                        ('WAV', '*.wav'),
+                        ('OGG', '*.ogg'),
+                        ('Semua file', '*.*'),
+                    ]
+                )
+            finally:
+                root.destroy()
+            if file_path:
+                dpg.set_value('music_path_entry', file_path)
+                dpg.set_value('music_picker_status',
+                              'Terpilih: '+Path(file_path).name+'. Klik GUNAKAN MUSIK.')
+        except Exception as exc:
+            self.log('File picker Windows tidak tersedia: '+str(exc))
+            dpg.set_value('music_picker_status',
+                          'Tidak bisa membuka penjelajah Windows. '
+                          'Tempel lokasi lengkap file MP3 pada kolom di atas.')
+
+    def use_music(self, *_):
+        filename = (dpg.get_value('music_path_entry') or '').strip().strip('"')
+        if not filename:
+            dpg.set_value('music_picker_status',
+                          'Pilih dari daftar, gunakan PILIH DARI WINDOWS, '
+                          'atau tempel lokasi file MP3.')
             return
-        candidate = Path(name).expanduser()
+        candidate = Path(filename).expanduser()
         if not candidate.is_absolute():
-            candidate = Path(app_data.get('current_path') or MUSIC_DIR) / candidate
+            candidate = MUSIC_DIR / candidate
         if candidate.suffix.lower() not in MUSIC_EXTENSIONS:
-            self.log('Format tidak didukung. Pilih MP3, WAV, atau OGG.')
+            dpg.set_value('music_picker_status',
+                          'Format tidak didukung. Pilih file MP3, WAV, atau OGG.')
             return
         try:
             candidate = candidate.resolve(strict=True)
             if not candidate.is_file():
-                raise OSError('Bukan file musik')
+                raise OSError('Lokasi tidak menunjuk ke file.')
             with candidate.open('rb') as f:
                 if not f.read(64):
-                    raise OSError('File kosong')
+                    raise OSError('File kosong.')
         except (OSError, ValueError) as exc:
-            self.log('Tidak bisa membaca file musik: '+str(exc))
-            dpg.set_value('music_label','File gagal dibaca - pilih lagi')
+            self.log('Musik tidak terbaca: '+str(exc))
+            dpg.set_value('music_picker_status',
+                          'Gagal membaca file: '+str(exc))
             return
         self.music_path = candidate
-        dpg.set_value('music_label',candidate.name)
+        dpg.set_value('music_label', candidate.name)
         try:
             save_music_choice(candidate)
         except OSError as exc:
-            self.log('Musik dipilih, tetapi pilihan tidak tersimpan: '+str(exc))
-        self.log('Musik siap dipilih: '+candidate.name)
+            self.log('Pilihan lagu tidak tersimpan untuk nanti: '+str(exc))
+        self.log('Musik dipilih: '+candidate.name)
+        dpg.hide_item('music_dialog')
 
     def init_audio(self):
         if pygame is None:
