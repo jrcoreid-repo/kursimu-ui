@@ -37,6 +37,22 @@ python kursimu_gui_v2.py --test-music --music-file "C:\\Users\\Public\\Music\\re
 
 Jika ditemukan tetapi gagal dimuat, terminal menampilkan error decoder/audio. Pastikan unduhan benar-benar file audio, bukan halaman HTML hasil unduh yang diberi ekstensi MP3.
 
+### Memilih MP3 di KursiMu (V2.7)
+
+1. Buka tombol **PILIH MUSIK**. Dialognya sekarang putih–hijau, bukan penjelajah gelap DearPyGui.
+2. Jika ada MP3 dalam `kursimu-ui/music/` (termasuk subfolder), pilih dari daftar lalu tekan **GUNAKAN MUSIK**.
+3. Jika file masih ada di **Downloads**, **Desktop**, atau lokasi lain, tekan **PILIH DARI WINDOWS** dan buka file melalui dialog Windows standar. Bisa juga tempel path absolut file audio di kolom lokasi.
+4. Aplikasi akan mengingat path yang dipilih di `kursimu_data/ui_settings.json`. Saat **MULAI**, lagu tersebut diputar.
+
+**Catatan penting:** Repository hanya menyimpan `music/README.md`, bukan MP3, karena file musik dikecualikan oleh `.gitignore`. `git pull` tidak mengunduh lagu. Pastikan filenya benar-benar ada di **folder `music` pada clone yang sedang dijalankan**, atau pilih dari komputer dengan tombol Windows.
+
+Diagnostik:
+
+```powershell
+python kursimu_gui_v2.py --test-music
+python kursimu_gui_v2.py --test-music --music-file "C:\\Users\\LENOVO\\Downloads\\contoh-musik.mp3"
+```
+
 **Sensor pijakan:** Arduino Serial 115200 baud; kirim integer `0..100` atau `LEVEL:65`; pilih port COM pada GUI.
 
 **BP:** XIAO ESP32-C3 dengan firmware BLE KursiMu V13.2. Tidak ada perubahan di firmware.
