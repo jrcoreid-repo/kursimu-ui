@@ -538,7 +538,7 @@ class KursiMuApp:
             with dpg.theme_component(dpg.mvProgressBar):
                 dpg.add_theme_color(dpg.mvThemeCol_PlotHistogram, GREEN)
                 dpg.add_theme_color(dpg.mvThemeCol_FrameBg, MINT_TINT)
-        with dpg.theme(tag='theme_card')
+        with dpg.theme(tag='theme_card'):
             with dpg.theme_component(dpg.mvChildWindow):
                 dpg.add_theme_color(dpg.mvThemeCol_ChildBg,WHITE)
                 dpg.add_theme_color(dpg.mvThemeCol_Border,LINE)
