@@ -50,7 +50,7 @@ def evaluate_session(
     can_pause = state == "RUNNING"
     can_resume = state == "PAUSED" and devices and free
     can_akhir = active and devices and initial_ready and not final_ready and free
-    can_finish = active and initial_ready and final_ready and free
+    can_finish = (active or state == "SAVE_FAILED") and initial_ready and final_ready and free
     can_new = state == "FINISHED" and free
     can_music = idle and not measuring and not bp_busy
     can_edit = idle and not initial_ready and not measuring
