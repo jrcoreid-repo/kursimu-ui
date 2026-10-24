@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.7 - light medical music picker and native Windows browse.
+KursiMu GUI v2.8 - strict patient session flow and status colors.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -34,6 +34,8 @@ import time
 import sys
 import ctypes
 from typing import TextIO
+
+from session_rules import evaluate_session
 
 try:
     import pygame
@@ -451,7 +453,8 @@ class KursiMuApp:
         self.foot_max = None
         self.last_foot_logged = 0.0
         self.last_foot_event = 0.0
-        self.session_state = "IDLE"  # IDLE/RUNNING/PAUSED/FINISHED
+        self.session_state = "IDLE"  # IDLE/RUNNING/PAUSED/FINISHED/SAVE_FAILED
+        self.baseline_identity: tuple[str, str] | None = None
         self.session_uid = None
         self.session_name = ""
         self.session_user_id = ""
@@ -857,15 +860,17 @@ class KursiMuApp:
             with dpg.child_window(tag='toolbar',height=204,width=-1,border=True,no_scrollbar=True):
                 with dpg.group(horizontal=True,tag='identity_row'):
                     dpg.add_text('NAMA PENGGUNA',color=MUTED)
-                    dpg.add_input_text(tag='patient_name',hint='Nama pengguna',width=235)
+                    dpg.add_input_text(tag='patient_name',hint='Nama pengguna',width=235,
+                                       callback=self.on_identity_changed)
                     dpg.add_text('ID PENGGUNA',color=MUTED)
-                    dpg.add_input_text(tag='patient_id',hint='ID unik pengguna',width=190)
+                    dpg.add_input_text(tag='patient_id',hint='ID unik pengguna',width=190,
+                                       callback=self.on_identity_changed)
                     dpg.add_spacer(width=15)
                     dpg.add_text('DURASI',color=MUTED)
                     dpg.add_text('00:00:00',tag='elapsed',color=DARK_GREEN)
                     dpg.add_spacer(width=8)
                     dpg.add_text('STATUS',color=MUTED)
-                    dpg.add_text('BELUM DIMULAI',tag='session_state',color=ORANGE)
+                    dpg.add_text('BELUM TERHUBUNG',tag='session_state',color=RED)
                     dpg.add_button(label='SESI BARU',tag='btn_new',width=140,callback=self.new_session)
                     dpg.bind_item_theme('btn_new','theme_neutral')
                 dpg.add_separator()
@@ -1048,6 +1053,9 @@ class KursiMuApp:
             dpg.set_value('port_combo','Pilih COM')
 
     def toggle_serial(self,*_):
+        if self.session_state != 'IDLE' or self.pending_target is not None:
+            self.log('Port Pijakan hanya dapat diubah ketika IDLE dan BP tidak mengukur')
+            return
         if self.demo:
             self.log('Mode simulasi: serial Arduino tidak digunakan')
             return
@@ -1166,6 +1174,9 @@ class KursiMuApp:
             dpg.set_value('music_picker_status', selected.name)
 
     def open_music_picker(self, *_):
+        if not self.workflow().can_change_music:
+            self.log('Musik hanya dapat diganti saat IDLE')
+            return
         self.refresh_music()
         dpg.set_value('music_path_entry',
                       str(self.music_path) if self.music_path else '')
@@ -1208,6 +1219,10 @@ class KursiMuApp:
                           'Tempel lokasi lengkap file MP3 pada kolom di atas.')
 
     def use_music(self, *_):
+        if not self.workflow().can_change_music:
+            self.log('Musik tidak dapat diubah selama sesi berlangsung')
+            dpg.hide_item('music_dialog')
+            return
         filename = (dpg.get_value('music_path_entry') or '').strip().strip('"')
         if not filename:
             dpg.set_value('music_picker_status',
@@ -1441,207 +1456,51 @@ class KursiMuApp:
             self.log(f'Ringkasan CSV gagal: {exc}')
             return False
 
+
+    def on_identity_changed(self,*_):
+        self.update_buttons()
+
+    def workflow(self):
+        name=(dpg.get_value('patient_name') or '').strip()
+        user_id=(dpg.get_value('patient_id') or '').strip()
+        identity_ready=bool(name and user_id)
+        if self.baseline_identity is not None:
+            identity_ready=identity_ready and (name,user_id)==self.baseline_identity
+        bp_busy=bool(not self.demo and self.ble_connected and self.bp_status and
+                     (self.bp_status['state'] in (1,2,3,4) or self.bp_status['pending']))
+        return evaluate_session(
+            state=self.session_state,
+            bp_connected=self.ble_connected,
+            foot_connected=self.serial_connected,
+            bp_ready=self.demo or self.bp_status is not None,
+            identity_ready=identity_ready,
+            initial_ready=self.readings['awal'] is not None,
+            final_ready=self.readings['akhir'] is not None,
+            measuring=self.pending_target is not None,
+            bp_busy=bp_busy,
+            music_ready=self.demo or bool(self.music_path and self.music_path.is_file()),
+        )
+
     def update_buttons(self):
-        ready=self.demo or (self.ble_connected and self.bp_status is not None)
-        busy=self.pending_target is not None
-        if self.bp_status:
-            busy=busy or self.bp_status['state'] in (1,2,3,4) or self.bp_status['pending']
-        dpg.configure_item('btn_awal',enabled=ready and not busy and self.session_state=='IDLE')
-        dpg.configure_item('btn_akhir',enabled=ready and not busy and self.session_state in ('RUNNING','PAUSED'))
-        dpg.configure_item('btn_start',enabled=self.session_state=='IDLE' and not self.pending_target)
-        dpg.configure_item('btn_pause',enabled=self.session_state in ('RUNNING','PAUSED'),
+        d=self.workflow()
+        dpg.configure_item('btn_awal',enabled=d.can_measure_awal)
+        dpg.configure_item('btn_akhir',enabled=d.can_measure_akhir)
+        dpg.configure_item('btn_start',enabled=d.can_start)
+        dpg.configure_item('btn_pause',enabled=d.can_pause or d.can_resume,
                            label='▶  LANJUTKAN' if self.session_state=='PAUSED' else '⏸  PAUSE')
-        dpg.configure_item('btn_finish',enabled=self.session_state in ('RUNNING','PAUSED') and not self.pending_target)
-        dpg.configure_item('btn_new',enabled=self.session_state in ('IDLE','FINISHED') and not self.pending_target)
-
-    def start_bp(self,target):
-        if self.pending_target:
-            self.log('Pengukuran sebelumnya belum selesai')
-            return
-        if target=='awal' and self.session_state!='IDLE':
-            self.log('BP AWAL diukur sebelum sesi relaksasi dimulai')
-            return
-        if target=='akhir' and self.session_state not in ('RUNNING','PAUSED'):
-            self.log('BP AKHIR diukur saat/di akhir sesi relaksasi')
-            return
-        if self.demo:
-            self.pending_target={'target':target,'baseline':self.demo_session,'accepted':True}
-            self.demo_target=target
-            self.demo_due=time.monotonic()+2.2
-            self.log(f'[DEMO] Mengukur BP {target.upper()}')
-            self.update_buttons()
-            return
-        if not self.ble_connected or self.bp_status is None:
-            self.log('BP KursiMu belum terhubung')
-            return
-        if self.bp_status['state'] in (1,2,3,4) or self.bp_status['pending']:
-            self.log('BP sedang mengukur / hasil menunggu ACK')
-            return
-        self.pending_target={'target':target,'baseline':self.bp_status['total'],'accepted':False}
-        self.ble_requests.put({'op':OP_START,'target':target})
-        self.log(f'START satu kali untuk BP {target.upper()}')
-        self.update_buttons()
-
-    def set_panel(self,target,result):
-        self.readings[target]=dict(result)
-        dpg.set_value(f'{target}_sys',str(result['sys']))
-        dpg.set_value(f'{target}_dia',str(result['dia']))
-        dpg.set_value(f'{target}_pulse',str(result['pulse']))
-        dpg.set_value(f'{target}_pp',str(result['pp']))
-        dpg.set_value(f'{target}_map',f'{result["map"]:.1f}')
-        dpg.set_value(f'{target}_session',str(result['session']))
-        dpg.set_value(f'{target}_time',result['timestamp'][11:16])
-        dpg.set_value(f'{target}_detail',f'Direkam {result["timestamp"].replace("T"," ")}')
-        self.update_deltas()
-        self.log(f'BP {target.upper()}: {result["sys"]}/{result["dia"]} mmHg; PP {result["pp"]}; MAP {result["map"]}')
-
-    def update_deltas(self):
-        awal=self.readings.get('awal')
-        akhir=self.readings.get('akhir')
-        dpg.set_value('comparison_hint',
-                      'AKHIR - AWAL' if awal and akhir
-                      else 'Menunggu hasil AWAL dan AKHIR')
-        for metric in ('sys','dia','pulse','pp','map'):
-            tag=f'delta_{metric}'
-            if awal is None or akhir is None:
-                dpg.set_value(tag,'--')
-                continue
-            change=round(akhir[metric]-awal[metric],1)
-            value=f'{change:+g}'
-            dpg.set_value(tag,value)
-            # Parameter color is informational, never a clinical risk classification.
-            accent={'sys': MED_BLUE, 'dia': MED_TEAL, 'pulse': MED_BLUE,
-                    'pp': MED_AMBER, 'map': MED_PURPLE}[metric]
-            dpg.configure_item(tag,color=accent)
-
-    def handle_result(self,result):
-        assigned=False
-        if (self.pending_target and self.pending_target['accepted']
-                and result['session']>self.pending_target['baseline']):
-            target=self.pending_target['target']
-            self.set_panel(target,result)
-            self.pending_target=None
-            assigned=True
-        if not assigned:
-            self.unassigned=result
-            dpg.set_value('unassigned_label',f'#{result["session"]} {result["sys"]}/{result["dia"]}')
-            dpg.configure_item('assign_awal',show=True)
-            dpg.configure_item('assign_akhir',show=True)
-            self.log(f'Recovery hasil BP #{result["session"]}; perlu pilih AWAL/AKHIR')
-        self.update_buttons()
-
-    def assign_unassigned(self,target):
-        if self.unassigned is None:
-            return
-        if target=='awal' and self.session_state not in ('IDLE',):
-            self.log('Hasil AWAL hanya dapat ditetapkan sebelum sesi dimulai')
-            return
-        if target=='akhir' and self.session_state not in ('RUNNING','PAUSED'):
-            self.log('Hasil AKHIR hanya dapat ditetapkan selama sesi aktif')
-            return
-        self.set_panel(target,self.unassigned)
-        self.unassigned=None
-        dpg.set_value('unassigned_label','Tidak ada')
-        dpg.configure_item('assign_awal',show=False)
-        dpg.configure_item('assign_akhir',show=False)
-        self.update_buttons()
-
-    def new_session(self,*_):
-        if self.session_state in ('RUNNING','PAUSED'):
-            self.log('Tekan SELESAI dulu sebelum membuat sesi baru')
-            return
-        if self.pending_target:
-            self.log('Pengukuran BP masih berlangsung')
-            return
-        self.readings={'awal':None,'akhir':None}
-        self.unassigned=None
-        self.pending_target=None
-        self.session_state='IDLE'
-        self.foot_count=0
-        self.foot_sum=0.0
-        self.foot_min=self.foot_max=None
-        self.session_uid=None
-        self.session_files={}
-        self.session_started=None
-        self.session_finished=None
-        self.elapsed_before_pause=0.0
-        self.running_since=None
-        dpg.set_value('session_state','BELUM DIMULAI')
-        dpg.configure_item('session_state',color=ORANGE)
-        dpg.set_value('unassigned_label','Tidak ada')
-        dpg.configure_item('assign_awal',show=False)
-        dpg.configure_item('assign_akhir',show=False)
-        dpg.set_value('elapsed','00:00:00')
-        dpg.set_value('patient_name','')
-        dpg.set_value('patient_id','')
-        for target in ('awal','akhir'):
-            dpg.set_value(f'{target}_sys','--')
-            dpg.set_value(f'{target}_dia','--')
-            for field in ('pulse','pp','map','session','time'):
-                dpg.set_value(f'{target}_{field}','--')
-            dpg.set_value(f'{target}_detail','Belum ada pengukuran')
-        self.foot_history_x.clear()
-        self.foot_history_y.clear()
-        self.foot_tick=0
-        dpg.set_value('foot_series',[[],[]])
-        dpg.set_value('foot_avg','--')
-        dpg.set_value('foot_count','0')
-        self.update_deltas()
-        self.update_foot(self.last_foot)
-        self.update_buttons()
-        self.log('Sesi baru siap; hasil sesi sebelumnya tersimpan')
-
-    def process_event(self,item):
-        typ=item.get('type')
-        if typ=='log':
-            self.log(item['message'])
-        elif typ=='ble':
-            self.ble_connected=item['connected']
-            dpg.set_value('ble_state',item['text'])
-            dpg.configure_item('ble_state',color=GREEN if self.ble_connected else ORANGE)
-            if not self.ble_connected:
-                self.bp_status=None
-                dpg.set_value('bp_state','TIDAK TERHUBUNG')
-            self.update_buttons()
-        elif typ=='serial':
-            self.serial_connected=item['connected']
-            dpg.set_value('serial_state',item['text'])
-            dpg.configure_item('serial_state',color=GREEN if self.serial_connected else ORANGE)
-        elif typ=='foot':
-            self.update_foot(item['level'])
-        elif typ=='status':
-            previous=self.bp_status
-            self.bp_status=item['value']
-            code=self.bp_status['state']
-            state=STATE_NAMES[code] if code<len(STATE_NAMES) else str(code)
-            dpg.set_value('bp_state',state)
-            dpg.configure_item('bp_state',color=RED if code==6 else GREEN if code in (0,5) else ORANGE)
-            if self.pending_target and self.pending_target['accepted'] and code==6:
-                self.log('BP gagal atau timeout. Hasil tidak dipasangkan')
-                self.pending_target=None
-            if previous is None or previous['state']!=code:
-                self.log(f'BP {state}, total #{self.bp_status["total"]}')
-            self.update_buttons()
-        elif typ=='command_ack':
-            answer=item['answer']
-            code=answer['ack']
-            desc=ACK_NAMES[code] if code<len(ACK_NAMES) else str(code)
-            if item.get('op')==OP_START and self.pending_target and item.get('target')==self.pending_target['target']:
-                if code==0:
-                    self.pending_target['accepted']=True
-                    self.log(f'START diterima untuk {item["target"].upper()}')
-                else:
-                    self.log(f'START ditolak: ACK_{desc}')
-                    self.pending_target=None
-            self.update_buttons()
-        elif typ=='command_error':
-            self.log(f'Perintah BP gagal: {item["message"]}')
-            if item.get('op')==OP_START:
-                # Result may still arrive; never repeat a potentially issued START.
-                self.pending_target=None
-            self.update_buttons()
-        elif typ=='result':
-            self.handle_result(item['value'])
+        dpg.configure_item('btn_finish',enabled=d.can_finish)
+        dpg.configure_item('btn_new',enabled=d.can_new)
+        dpg.configure_item('btn_music',enabled=d.can_change_music)
+        dpg.configure_item('patient_name',enabled=d.can_edit_identity)
+        dpg.configure_item('patient_id',enabled=d.can_edit_identity)
+        can_change_port=self.session_state=='IDLE' and self.pending_target is None
+        for tag in ('port_combo','btn_connect','btn_refresh'):
+            dpg.configure_item(tag,enabled=can_change_port)
+        color={'red':RED,'yellow':ORANGE,'green':GREEN}[d.color]
+        dpg.set_value('session_state',d.phase)
+        dpg.configure_item('session_state',color=color)
+        dpg.set_value('activity_line',d.guidance)
+        dpg.configure_item('activity_line',color=color)
 
     def update_demo(self):
         now=time.monotonic()
