@@ -1310,14 +1310,10 @@ class KursiMuApp:
         if self.session_state!='IDLE':
             self.log('Sesi sudah dibuat. Gunakan LANJUTKAN atau SESI BARU.')
             return
-        name=(dpg.get_value('patient_name') or '').strip()
-        user_id=(dpg.get_value('patient_id') or '').strip()
-        if not name or not user_id:
-            self.log('Isi Nama dan ID Pengguna sebelum menekan MULAI')
+        if not self.workflow().can_start:
+            self.log('MULAI ditolak: '+self.workflow().guidance)
             return
-        if self.pending_target:
-            self.log('Tunggu hasil pengukuran BP selesai sebelum MULAI')
-            return
+        name,user_id=self.baseline_identity
         if not self.start_music():
             return
         # Generate and open streaming CSV. If this fails, do not leave music playing.
@@ -1352,68 +1348,88 @@ class KursiMuApp:
         self.foot_max=None
         self.last_foot_logged=0
         self.update_buttons()
-        if self.readings['awal'] is None:
-            self.log('Sesi dimulai; PERHATIAN: BP AWAL belum tersedia')
-        else:
-            self.log('Sesi relaksasi dimulai - musik dan logging pijakan aktif')
-        dpg.set_value('session_state','RELAKSASI AKTIF')
-        dpg.configure_item('session_state',color=GREEN)
+        self.log('Sesi relaksasi dimulai: musik dan logging pijakan aktif')
+        self.update_buttons()
+
 
     def pause_relaxation(self,*_):
+        d=self.workflow()
         if self.session_state=='RUNNING':
+            if not d.can_pause:
+                self.log('PAUSE ditolak: sesi belum berjalan')
+                return
             self.elapsed_before_pause=self.elapsed_seconds()
             self.running_since=None
             self.session_state='PAUSED'
             if self.audio_ready:
-                pygame.mixer.music.pause()
-            dpg.set_value('session_state','DIJEDA')
-            dpg.configure_item('session_state',color=ORANGE)
-            self.log('Relaksasi dijeda; musik dan logging pijakan berhenti sementara')
+                try:
+                    pygame.mixer.music.pause()
+                except Exception as exc:
+                    self.log('Musik gagal dijeda: '+str(exc))
+            self.log('Sesi dijeda: musik dan pencatatan pijakan berhenti sementara')
         elif self.session_state=='PAUSED':
+            if not d.can_resume:
+                self.log('LANJUTKAN ditolak: hubungkan BP dan Pijakan Sensor dahulu')
+                return
             if self.audio_ready:
                 try:
                     pygame.mixer.music.unpause()
                 except Exception as exc:
-                    self.log(f'Gagal melanjutkan musik: {exc}')
+                    self.log('Musik gagal dilanjutkan: '+str(exc))
                     return
             self.running_since=time.monotonic()
             self.session_state='RUNNING'
-            dpg.set_value('session_state','RELAKSASI AKTIF')
-            dpg.configure_item('session_state',color=GREEN)
-            self.log('Relaksasi dilanjutkan; musik dan logging pijakan aktif')
+            self.log('Sesi dilanjutkan: musik dan pencatatan pijakan aktif')
         else:
-            self.log('PAUSE hanya tersedia saat sesi relaksasi berjalan')
+            self.log('PAUSE hanya tersedia saat relaksasi berlangsung')
         self.update_buttons()
 
+    def pause_on_disconnect(self, device):
+        if self.demo or self.session_state!='RUNNING':
+            return
+        self.elapsed_before_pause=self.elapsed_seconds()
+        self.running_since=None
+        self.session_state='PAUSED'
+        if self.audio_ready:
+            try:
+                pygame.mixer.music.pause()
+            except Exception:
+                pass
+        self.update_buttons()
+        self.log(device+' terputus: sesi otomatis dijeda sampai koneksi pulih')
+
+
     def finish_relaxation(self,*_):
-        if self.session_state not in ('RUNNING','PAUSED'):
-            self.log('Belum ada sesi aktif untuk diselesaikan')
+        if not self.workflow().can_finish:
+            self.log('SELESAI ditolak: hasil AWAL dan AKHIR harus lengkap')
             return False
-        if self.pending_target:
-            self.log('Tunggu pengukuran BP selesai sebelum menekan SELESAI')
-            return False
-        if self.readings['akhir'] is None:
-            self.log('BP AKHIR belum tersedia; kolom AKHIR pada CSV akan kosong')
+        if self.session_state == 'SAVE_FAILED':
+            ok=self.write_summary()
+            self.session_state='FINISHED' if ok else 'SAVE_FAILED'
+            self.update_buttons()
+            self.log('Ringkasan berhasil disimpan' if ok else 'Masih gagal simpan. Periksa disk.')
+            return ok
+
         duration=self.elapsed_seconds()
         self.stop_music()
-        self.session_state='FINISHED'
         self.elapsed_before_pause=duration
         self.running_since=None
         self.session_finished=datetime.now()
         if self.foot_file:
-            self.foot_file.flush()
-            os.fsync(self.foot_file.fileno())
-            self.foot_file.close()
-            self.foot_file=None
-            self.foot_writer=None
+            try:
+                self.foot_file.flush()
+                os.fsync(self.foot_file.fileno())
+            finally:
+                self.foot_file.close()
+                self.foot_file=None
+                self.foot_writer=None
         ok=self.write_summary()
-        dpg.set_value('session_state','SELESAI' if ok else 'GAGAL SIMPAN')
-        dpg.configure_item('session_state',color=GREEN if ok else RED)
+        self.session_state='FINISHED' if ok else 'SAVE_FAILED'
         self.update_buttons()
         if ok:
-            self.log(f'Sesi selesai, musik berhenti. CSV: {self.session_files["ringkasan"].name}')
+            self.log(f'Sesi lengkap tersimpan: {self.session_files["ringkasan"].name}')
         else:
-            self.log('Sesi selesai tetapi ringkasan gagal; CSV pijakan tetap tersimpan')
+            self.log('CSV pijakan tersimpan, ringkasan gagal. Klik SELESAI untuk mencoba lagi.')
         return ok
 
     def write_summary(self):
