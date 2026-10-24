@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.3 - compact three-card interface with dedicated comparison strip.
+KursiMu GUI v2.4 - expanded medical dashboard and colored parameter cards.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -100,6 +100,14 @@ RED = (191, 65, 64, 255)
 BLUE = (44, 119, 171, 255)
 TEAL = (22, 112, 109, 255)
 GRAY = (104, 131, 118, 255)
+MED_BLUE = (41, 106, 177, 255)
+MED_TEAL = (20, 136, 125, 255)
+MED_PURPLE = (108, 85, 173, 255)
+MED_AMBER = (169, 109, 26, 255)
+SKY_TINT = (234, 244, 255, 255)
+MINT_TINT = (231, 247, 242, 255)
+LILAC_TINT = (245, 241, 255, 255)
+AMBER_TINT = (255, 246, 230, 255)
 
 
 def crc16(data: bytes) -> int:
@@ -447,6 +455,7 @@ class KursiMuApp:
             self.fonts['hero'] = dpg.add_font(str(bold if bold.exists() else font), 40)
             self.fonts['section'] = dpg.add_font(str(bold if bold.exists() else font), 19)
             self.fonts['metric'] = dpg.add_font(str(bold if bold.exists() else font), 23)
+            self.fonts['compare'] = dpg.add_font(str(bold if bold.exists() else font), 28)
         dpg.bind_font(self.fonts['base'])
 
     def bind_font(self, tag, name):
@@ -520,6 +529,22 @@ class KursiMuApp:
                 dpg.add_theme_color(dpg.mvThemeCol_Button,(230,238,232,255))
                 dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered,(246,222,220,255))
                 dpg.add_theme_color(dpg.mvThemeCol_Text,(137,47,48,255))
+        # Tiles use gentle medical-style colors, not diagnostic categories.
+        for tag, bg, border in (
+            ('tile_systolic', SKY_TINT, (207, 224, 243, 255)),
+            ('tile_diastolic', MINT_TINT, (208, 234, 224, 255)),
+            ('tile_hr', (237, 248, 255, 255), (216, 234, 246, 255)),
+            ('tile_pp', AMBER_TINT, (247, 230, 200, 255)),
+            ('tile_map', LILAC_TINT, (229, 220, 247, 255)),
+            ('tile_comparison', (248, 252, 250, 255), (204, 228, 215, 255)),
+        ):
+            with dpg.theme(tag=tag):
+                with dpg.theme_component(dpg.mvChildWindow):
+                    dpg.add_theme_color(dpg.mvThemeCol_ChildBg, bg)
+                    dpg.add_theme_color(dpg.mvThemeCol_Border, border)
+                    dpg.add_theme_style(dpg.mvStyleVar_ChildRounding, 10)
+                    dpg.add_theme_style(dpg.mvStyleVar_ChildBorderSize, 1)
+                    dpg.add_theme_style(dpg.mvStyleVar_WindowPadding, 10, 8)
         dpg.bind_theme('theme_global')
 
     @staticmethod
@@ -555,93 +580,100 @@ class KursiMuApp:
 
 
 
+
     def add_metric(self, target, label, unit):
         field = 'pulse' if label == 'HR' else label.lower()
-        with dpg.child_window(tag=f'metric_box_{target}_{field}',
-                              width=115, height=96, border=False, no_scrollbar=True):
+        tile, accent = {
+            'pulse': ('tile_hr', MED_BLUE),
+            'pp': ('tile_pp', MED_AMBER),
+            'map': ('tile_map', MED_PURPLE),
+        }[field]
+        box = f'metric_box_{target}_{field}'
+        with dpg.child_window(tag=box, width=115, height=89,
+                              border=True, no_scrollbar=True):
             dpg.add_text(label, color=MUTED)
-            tag = f'{target}_{field}'
-            dpg.add_text('--', tag=tag, color=DARK_GREEN)
-            self.bind_font(tag, 'metric')
-            dpg.add_text(unit, color=MUTED)
+            with dpg.group(horizontal=True):
+                tag = f'{target}_{field}'
+                dpg.add_text('--', tag=tag, color=accent)
+                self.bind_font(tag, 'metric')
+                dpg.add_text(unit, color=MUTED)
+        dpg.bind_item_theme(box, tile)
 
 
     def add_bp_panel(self, target, number, label):
         tag = f'panel_{target}'
-        with dpg.child_window(tag=tag, width=400, height=415,
+        with dpg.child_window(tag=tag, width=400, height=490,
                               border=True, no_scrollbar=True):
             dpg.add_text(f'{number}  /  TEKANAN DARAH {label}',
                          tag=f'{target}_title', color=DARK_GREEN)
-            self.bind_font(f'{target}_title','section')
-            dpg.add_spacer(height=7)
-
-            # Two prominent values: suitable for nontechnical users.
+            self.bind_font(f'{target}_title', 'section')
+            dpg.add_spacer(height=8)
             with dpg.group(horizontal=True):
-                for field, title in (('sys','SISTOL'),('dia','DIASTOL')):
-                    with dpg.child_window(tag=f'bp_box_{target}_{field}',
-                                          width=170, height=142, border=False,
-                                          no_scrollbar=True):
+                for field, title, tile, accent in (
+                    ('sys', 'SISTOL', 'tile_systolic', MED_BLUE),
+                    ('dia', 'DIASTOL', 'tile_diastolic', MED_TEAL),
+                ):
+                    box = f'bp_box_{target}_{field}'
+                    with dpg.child_window(tag=box, width=170, height=132,
+                                          border=True, no_scrollbar=True):
                         dpg.add_text(title, color=MUTED)
-                        dpg.add_text('--', tag=f'{target}_{field}', color=INK)
-                        self.bind_font(f'{target}_{field}','hero')
+                        dpg.add_text('--', tag=f'{target}_{field}', color=accent)
+                        self.bind_font(f'{target}_{field}', 'hero')
                         dpg.add_text('mmHg', color=MUTED)
-            dpg.add_spacer(height=6)
-
-            with dpg.group(horizontal=True):
-                self.add_metric(target,'HR','BPM')
-                self.add_metric(target,'PP','mmHg')
-                self.add_metric(target,'MAP','mmHg')
-
+                    dpg.bind_item_theme(box, tile)
             dpg.add_spacer(height=10)
-            dpg.add_button(label=f'UKUR {label}',tag=f'btn_{target}',
-                           width=-1,height=54,
+            with dpg.group(horizontal=True):
+                self.add_metric(target, 'HR', 'BPM')
+                self.add_metric(target, 'PP', 'mmHg')
+                self.add_metric(target, 'MAP', 'mmHg')
+            dpg.add_spacer(height=13)
+            dpg.add_button(label=f'UKUR {label}', tag=f'btn_{target}',
+                           width=-1, height=60,
                            callback=lambda s,a,u: self.start_bp(u),
                            user_data=target)
             dpg.bind_item_theme(f'btn_{target}',
                                 'theme_akhir' if target=='akhir' else 'theme_measure')
-            dpg.add_spacer(height=7)
-            dpg.add_text('Belum ada pengukuran',tag=f'{target}_detail',
-                         color=MUTED)
+            dpg.add_spacer(height=10)
+            dpg.add_text('Belum ada pengukuran', tag=f'{target}_detail', color=MUTED)
             with dpg.group(horizontal=True):
-                dpg.add_text('Sesi',color=MUTED)
-                dpg.add_text('--',tag=f'{target}_session',color=DARK_GREEN)
-                dpg.add_spacer(width=12)
-                dpg.add_text('Waktu',color=MUTED)
-                dpg.add_text('--',tag=f'{target}_time',color=DARK_GREEN)
-        dpg.bind_item_theme(tag,'theme_card')
+                dpg.add_text('Sesi', color=MUTED)
+                dpg.add_text('--', tag=f'{target}_session', color=DARK_GREEN)
+                dpg.add_spacer(width=14)
+                dpg.add_text('Waktu', color=MUTED)
+                dpg.add_text('--', tag=f'{target}_time', color=DARK_GREEN)
+        dpg.bind_item_theme(tag, 'theme_card')
 
 
     def add_foot_panel(self):
-        with dpg.child_window(tag='panel_foot',width=400,height=415,
-                              border=True,no_scrollbar=True):
-            dpg.add_text('01  /  PIJAKAN SENSOR',tag='foot_title',
-                         color=DARK_GREEN)
-            self.bind_font('foot_title','section')
-            dpg.add_spacer(height=7)
+        with dpg.child_window(tag='panel_foot', width=400, height=490,
+                              border=True, no_scrollbar=True):
+            dpg.add_text('01  /  PIJAKAN SENSOR', tag='foot_title', color=DARK_GREEN)
+            self.bind_font('foot_title', 'section')
+            dpg.add_spacer(height=8)
             with dpg.group(horizontal=True):
                 with dpg.group():
-                    dpg.add_text('0%',tag='foot_level',color=INK)
-                    self.bind_font('foot_level','hero')
-                    dpg.add_text('LEVEL PIJAKAN',color=MUTED)
-                dpg.add_spacer(width=8)
-                with dpg.drawlist(width=145,height=110,tag='foot_draw'):
-                    dpg.draw_rectangle((23,8),(90,105),fill=PALE,
+                    dpg.add_text('0%', tag='foot_level', color=MED_TEAL)
+                    self.bind_font('foot_level', 'hero')
+                    dpg.add_text('LEVEL PIJAKAN', color=MUTED)
+                dpg.add_spacer(width=15)
+                with dpg.drawlist(width=145, height=110, tag='foot_draw'):
+                    dpg.draw_rectangle((23,8),(90,105),fill=MINT_TINT,
                                        color=LINE,rounding=12)
                     dpg.draw_rectangle((29,99),(84,99),fill=GREEN,
                                        color=GREEN,rounding=9,tag='foot_fill')
                     for y,txt in ((6,'100%'),(51,'50%'),(92,'0%')):
                         dpg.draw_text((102,y),txt,color=MUTED,size=14)
-                dpg.add_spacer(width=8)
+                dpg.add_spacer(width=15)
                 with dpg.group():
                     dpg.add_text('RATA-RATA',color=MUTED)
-                    dpg.add_text('--',tag='foot_avg',color=DARK_GREEN)
+                    dpg.add_text('--',tag='foot_avg',color=MED_TEAL)
                     self.bind_font('foot_avg','metric')
                     dpg.add_text('SAMPEL',color=MUTED)
                     dpg.add_text('0',tag='foot_count',color=DARK_GREEN)
                     self.bind_font('foot_count','metric')
             dpg.add_separator()
-            dpg.add_text('GRAFIK PIJAKAN',color=DARK_GREEN)
-            with dpg.plot(tag='foot_plot',height=175,width=-1,
+            dpg.add_text('GRAFIK PIJAKAN REAL-TIME',color=DARK_GREEN)
+            with dpg.plot(tag='foot_plot',height=190,width=-1,
                           no_menus=True,no_box_select=True):
                 dpg.add_plot_axis(dpg.mvXAxis,tag='foot_axis_x',no_tick_labels=True)
                 with dpg.plot_axis(dpg.mvYAxis,tag='foot_axis_y'):
@@ -650,40 +682,42 @@ class KursiMuApp:
             dpg.set_axis_limits('foot_axis_x',0,60)
         dpg.bind_item_theme('panel_foot','theme_card')
 
-
     def add_foot_metric(self,name,tag):
         with dpg.child_window(width=170,height=70,border=False,no_scrollbar=True):
             dpg.add_text(name,color=MUTED)
             dpg.add_text('--',tag=tag,color=DARK_GREEN)
             self.bind_font(tag,'metric')
 
+
     def add_comparison_panel(self):
-        # A distinct horizontal strip, below the 3 measurement cards and above logos.
-        with dpg.child_window(tag='panel_comparison',width=-1,height=120,
+        with dpg.child_window(tag='panel_comparison',width=-1,height=148,
                               border=True,no_scrollbar=True):
             with dpg.group(horizontal=True):
-                dpg.add_text('PERUBAHAN SETELAH RELAKSASI',tag='comparison_title',
-                             color=DARK_GREEN)
+                dpg.add_text('HASIL PERUBAHAN SETELAH RELAKSASI',
+                             tag='comparison_title',color=DARK_GREEN)
                 self.bind_font('comparison_title','section')
-                dpg.add_spacer(width=18)
+                dpg.add_spacer(width=16)
                 dpg.add_text('Menunggu hasil AWAL dan AKHIR',
                              tag='comparison_hint',color=MUTED)
-            dpg.add_spacer(height=5)
+            dpg.add_spacer(height=9)
             with dpg.group(horizontal=True):
-                for field,title,unit in (('sys','SISTOL','mmHg'),
-                                          ('dia','DIASTOL','mmHg'),
-                                          ('pulse','HR','BPM'),
-                                          ('pp','PP','mmHg'),
-                                          ('map','MAP','mmHg')):
-                    with dpg.child_window(tag=f'delta_box_{field}',
-                                          width=160,height=70,border=False,
-                                          no_scrollbar=True):
+                for field,title,unit,tile,accent in (
+                    ('sys','SISTOL','mmHg','tile_systolic',MED_BLUE),
+                    ('dia','DIASTOL','mmHg','tile_diastolic',MED_TEAL),
+                    ('pulse','HR','BPM','tile_hr',MED_BLUE),
+                    ('pp','PP','mmHg','tile_pp',MED_AMBER),
+                    ('map','MAP','mmHg','tile_map',MED_PURPLE),
+                ):
+                    box=f'delta_box_{field}'
+                    with dpg.child_window(tag=box,width=160,height=91,
+                                          border=True,no_scrollbar=True):
                         dpg.add_text(title,color=MUTED)
                         with dpg.group(horizontal=True):
-                            dpg.add_text('--',tag=f'delta_{field}',color=DARK_GREEN)
-                            self.bind_font(f'delta_{field}','metric')
+                            dpg.add_text('--',tag=f'delta_{field}',color=accent)
+                            self.bind_font(f'delta_{field}','compare')
                             dpg.add_text(unit,color=MUTED)
-        dpg.bind_item_theme('panel_comparison','theme_card')
+                    dpg.bind_item_theme(box,tile)
+        dpg.bind_item_theme('panel_comparison','tile_comparison')
 
     def add_image_footer(self):
         with dpg.child_window(tag='footer_logos',height=105,width=-1,border=True,no_scrollbar=True):
@@ -807,16 +841,16 @@ class KursiMuApp:
 
 
 
+
     def layout(self,force=False):
-        width = max(850,dpg.get_viewport_width())
-        height = max(650,dpg.get_viewport_height())
+        width=max(850,dpg.get_viewport_width())
+        height=max(650,dpg.get_viewport_height())
         key=(width,height)
         if not force and self.last_layout_size==key:
             return
         self.last_layout_size=key
         dpg.configure_item('main',width=width,height=height)
         dpg.set_item_pos('btn_close',[max(8,width-207),8])
-
         content_width=width-44
         button_width=max(150,(content_width-30)//4)
         for tag in ('btn_start','btn_pause','btn_finish','btn_music'):
@@ -825,43 +859,34 @@ class KursiMuApp:
         dpg.configure_item('patient_name',width=235+extra//3)
         dpg.configure_item('patient_id',width=190+extra//3)
         dpg.configure_item('connection_spacer',width=max(8,width-1030))
-
-        # Keep all four visible zones inside the viewport: controls,
-        # three equal cards, comparison strip, and slim logo footer.
-        toolbar_h=174
-        footer_h=60 if height>=800 else 50
-        comparison_h=116 if height>=820 else 96
-        # Reserve header and outer gaps (approx. 139px).
-        available=height-toolbar_h-footer_h-comparison_h-139
-        panel_h=max(305,min(450,available))
+        # Roomier cards and result strip, with a compact control bar and logo footer.
+        toolbar_h=160
+        footer_h=50 if height>=850 else 44
+        comparison_h=148 if height>=900 else 138
+        available=height-toolbar_h-footer_h-comparison_h-125
+        panel_h=max(370,min(520,available))
         panel_w=max(255,(width-52)//3)
         dpg.configure_item('toolbar',height=toolbar_h)
         for panel in ('panel_foot','panel_awal','panel_akhir'):
             dpg.configure_item(panel,width=panel_w,height=panel_h)
         dpg.configure_item('panel_comparison',height=comparison_h)
         dpg.configure_item('footer_logos',height=footer_h)
-
-        # Fit metric cards across each BP panel, without horizontal overflow.
-        large_width=max(105,(panel_w-32)//2)
-        small_width=max(73,(panel_w-40)//3)
+        big_w=max(105,(panel_w-36)//2)
+        small_w=max(73,(panel_w-46)//3)
         for target in ('awal','akhir'):
             for metric in ('sys','dia'):
-                dpg.configure_item(f'bp_box_{target}_{metric}',width=large_width)
+                dpg.configure_item(f'bp_box_{target}_{metric}',width=big_w)
             for metric in ('pulse','pp','map'):
-                dpg.configure_item(f'metric_box_{target}_{metric}',width=small_width)
-
-        delta_width=max(115,(width-55)//5)
+                dpg.configure_item(f'metric_box_{target}_{metric}',width=small_w)
+        delta_w=max(110,(width-65)//5)
         for metric in ('sys','dia','pulse','pp','map'):
-            dpg.configure_item(f'delta_box_{metric}',width=delta_width)
-
-        # Chart is sized from remaining space, not a fixed graph height.
-        # Leave room for header, gauge, counts, title, padding, and axes.
-        chart_h=max(90,min(198,panel_h-230))
+            dpg.configure_item(f'delta_box_{metric}',width=delta_w)
+        # Scale chart to actual remaining space, including axis and card padding.
+        chart_h=max(102,min(247,panel_h-233))
         dpg.configure_item('foot_plot',height=chart_h)
-
         if self.logos:
-            max_img_h=max(24,footer_h-20)
-            max_img_w=max(60,(width-55)//len(self.logos)-12)
+            max_img_h=max(24,footer_h-18)
+            max_img_w=max(55,(width-55)//len(self.logos)-12)
             for i,(_,w,h,_) in enumerate(self.logos):
                 scale=min(max_img_w/w,max_img_h/h)
                 dpg.configure_item(f'logo_img_{i}',
@@ -1216,7 +1241,10 @@ class KursiMuApp:
             change=round(akhir[metric]-awal[metric],1)
             value=f'{change:+g}'
             dpg.set_value(tag,value)
-            dpg.configure_item(tag,color=GREEN if change<0 else ORANGE if change>0 else MUTED)
+            # Parameter color is informational, never a clinical risk classification.
+            accent={'sys': MED_BLUE, 'dia': MED_TEAL, 'pulse': MED_BLUE,
+                    'pp': MED_AMBER, 'map': MED_PURPLE}[metric]
+            dpg.configure_item(tag,color=accent)
 
     def handle_result(self,result):
         assigned=False
