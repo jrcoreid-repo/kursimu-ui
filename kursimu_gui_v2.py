@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.1 - balanced white/green Dear PyGui application.
+KursiMu GUI v2.2 - compact, patient-friendly DearPyGui interface.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -441,12 +441,12 @@ class KursiMuApp:
         if font is None:
             return
         with dpg.font_registry():
-            self.fonts['base'] = dpg.add_font(str(font), 18)
-            self.fonts['small'] = dpg.add_font(str(font), 15)
-            self.fonts['title'] = dpg.add_font(str(bold if bold.exists() else font), 30)
-            self.fonts['hero'] = dpg.add_font(str(bold if bold.exists() else font), 50)
+            self.fonts['base'] = dpg.add_font(str(font), 16)
+            self.fonts['small'] = dpg.add_font(str(font), 14)
+            self.fonts['title'] = dpg.add_font(str(bold if bold.exists() else font), 25)
+            self.fonts['hero'] = dpg.add_font(str(bold if bold.exists() else font), 40)
             self.fonts['section'] = dpg.add_font(str(bold if bold.exists() else font), 19)
-            self.fonts['metric'] = dpg.add_font(str(bold if bold.exists() else font), 26)
+            self.fonts['metric'] = dpg.add_font(str(bold if bold.exists() else font), 23)
         dpg.bind_font(self.fonts['base'])
 
     def bind_font(self, tag, name):
@@ -469,9 +469,9 @@ class KursiMuApp:
                     (dpg.mvThemeCol_CheckMark,GREEN),
                 ):
                     dpg.add_theme_color(idx,color)
-                dpg.add_theme_style(dpg.mvStyleVar_WindowPadding,12,10)
-                dpg.add_theme_style(dpg.mvStyleVar_FramePadding,9,6)
-                dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing,8,6)
+                dpg.add_theme_style(dpg.mvStyleVar_WindowPadding,10,8)
+                dpg.add_theme_style(dpg.mvStyleVar_FramePadding,8,5)
+                dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing,6,5)
                 dpg.add_theme_style(dpg.mvStyleVar_FrameRounding,7)
                 dpg.add_theme_style(dpg.mvStyleVar_ChildRounding,12)
                 dpg.add_theme_style(dpg.mvStyleVar_WindowBorderSize,0)
@@ -547,92 +547,108 @@ class KursiMuApp:
                 except Exception as exc:
                     print(f'[LOGO] Cannot load {path}: {exc}')
 
-    def add_metric(self, target, label, unit):
-        with dpg.child_window(width=129,height=78,border=False,no_scrollbar=True):
-            dpg.add_text(label,color=MUTED)
-            with dpg.group(horizontal=True):
-                tag=f'{target}_{label.lower()}'
-                dpg.add_text('--',tag=tag,color=DARK_GREEN)
-                self.bind_font(tag,'metric')
-                dpg.add_text(unit,color=MUTED)
 
-    def add_progress_metric(self, target, metric, title, maximum):
-        dpg.add_text(title,color=MUTED)
-        dpg.add_progress_bar(default_value=0.0,tag=f'{target}_bar_{metric}',
-                             width=-1,height=18,overlay='--')
+    def add_metric(self, target, label, unit):
+        field = 'pulse' if label == 'HR' else label.lower()
+        with dpg.child_window(tag=f'metric_box_{target}_{field}',
+                              width=115, height=76, border=False, no_scrollbar=True):
+            dpg.add_text(label, color=MUTED)
+            with dpg.group(horizontal=True):
+                value_tag = f'{target}_{field}'
+                dpg.add_text('--', tag=value_tag, color=DARK_GREEN)
+                self.bind_font(value_tag, 'metric')
+                dpg.add_text(unit, color=MUTED)
+
 
     def add_bp_panel(self, target, number, label):
-        tag=f'panel_{target}'
-        with dpg.child_window(tag=tag,width=400,height=480,border=True,no_scrollbar=True):
-            dpg.add_text(f'{number}  /  BP KURSIMU - {label}',tag=f'{target}_title',color=DARK_GREEN)
-            self.bind_font(f'{target}_title','section')
-            dpg.add_spacer(height=5)
-            dpg.add_text('SISTOL / DIASTOL',color=MUTED)
-            dpg.add_text('-- / --',tag=f'{target}_hero',color=INK)
-            self.bind_font(f'{target}_hero','hero')
-            dpg.add_text('mmHg',color=MUTED)
-            dpg.add_separator()
-            with dpg.group(horizontal=True):
-                self.add_metric(target,'PULSE','BPM')
-                self.add_metric(target,'PP','mmHg')
-                self.add_metric(target,'MAP','mmHg')
-            dpg.add_separator()
-            dpg.add_text('PROFIL HASIL PENGUKURAN',color=DARK_GREEN)
-            self.add_progress_metric(target,'sys','Sistol  /  200 mmHg',200)
-            self.add_progress_metric(target,'dia','Diastol  /  200 mmHg',200)
-            self.add_progress_metric(target,'pulse','Pulse  /  150 BPM',150)
+        tag = f'panel_{target}'
+        with dpg.child_window(tag=tag, width=400, height=460, border=True, no_scrollbar=True):
+            dpg.add_text(f'{number}  /  TEKANAN DARAH {label}',
+                         tag=f'{target}_title', color=DARK_GREEN)
+            self.bind_font(f'{target}_title', 'section')
             dpg.add_spacer(height=6)
+
+            dpg.add_text('SISTOL / DIASTOL', color=MUTED)
+            dpg.add_text('-- / --', tag=f'{target}_hero', color=INK)
+            self.bind_font(f'{target}_hero', 'hero')
+            dpg.add_text('mmHg', color=MUTED)
+            dpg.add_spacer(height=8)
+
             with dpg.group(horizontal=True):
-                dpg.add_text('SESI BP',color=MUTED)
-                dpg.add_text('--',tag=f'{target}_session',color=DARK_GREEN)
-            dpg.add_text('Belum ada pengukuran',tag=f'{target}_detail',color=MUTED,wrap=350)
-            dpg.add_separator()
-            if target=='akhir':
-                dpg.add_text('PERUBAHAN DARI AWAL  (AKHIR - AWAL)',color=DARK_GREEN)
+                self.add_metric(target, 'HR', 'BPM')
+                self.add_metric(target, 'PP', 'mmHg')
+                self.add_metric(target, 'MAP', 'mmHg')
+
+            dpg.add_spacer(height=8)
+            dpg.add_button(label=f'UKUR {label}', tag=f'btn_{target}',
+                           width=-1, height=58,
+                           callback=lambda s,a,u: self.start_bp(u), user_data=target)
+            if target == 'akhir':
+                dpg.bind_item_theme(f'btn_{target}', 'theme_akhir')
+
+            dpg.add_spacer(height=8)
+            dpg.add_text('Belum ada pengukuran', tag=f'{target}_detail',
+                         color=MUTED, wrap=300)
+            with dpg.group(horizontal=True):
+                dpg.add_text('SESI', color=MUTED)
+                dpg.add_text('--', tag=f'{target}_session', color=DARK_GREEN)
+                dpg.add_spacer(width=14)
+                dpg.add_text('WAKTU', color=MUTED)
+                dpg.add_text('--', tag=f'{target}_time', color=DARK_GREEN)
+
+            if target == 'akhir':
+                dpg.add_separator()
+                dpg.add_text('PERUBAHAN DARI AWAL', color=DARK_GREEN)
                 with dpg.group(horizontal=True):
-                    for metric,unit in [('sys','SYS'),('dia','DIA'),('pulse','PULSE'),('pp','PP'),('map','MAP')]:
-                        with dpg.group():
-                            dpg.add_text(unit,color=MUTED)
-                            dpg.add_text('--',tag=f'delta_{metric}',color=DARK_GREEN)
-                dpg.add_text('Nilai negatif = penurunan; bukan kesimpulan klinis.',color=MUTED,wrap=355)
-            else:
-                dpg.add_text('Baseline sebelum relaksasi musik.',color=MUTED)
-            dpg.add_spacer(height=7)
-            dpg.add_button(label=f'UKUR {label}',tag=f'btn_{target}',width=-1,height=44,
-                           callback=lambda s,a,u: self.start_bp(u),user_data=target)
-            if target=='akhir':
-                dpg.bind_item_theme(f'btn_{target}','theme_akhir')
-            dpg.add_text('PP = SYS - DIA   |   MAP ≈ DIA + PP/3',color=MUTED)
-        dpg.bind_item_theme(tag,'theme_card')
+                    for metric, title in (('sys','SYS'),('dia','DIA'),
+                                          ('pulse','HR'),('pp','PP'),('map','MAP')):
+                        with dpg.child_window(tag=f'delta_box_{metric}',
+                                              width=68, height=63, border=False,
+                                              no_scrollbar=True):
+                            dpg.add_text(title, color=MUTED)
+                            dpg.add_text('--', tag=f'delta_{metric}', color=DARK_GREEN)
+        dpg.bind_item_theme(tag, 'theme_card')
+
 
     def add_foot_panel(self):
-        with dpg.child_window(tag='panel_foot',width=400,height=480,border=True,no_scrollbar=True):
-            dpg.add_text('01  /  PIJAKAN SENSOR',tag='foot_title',color=DARK_GREEN)
+        with dpg.child_window(tag='panel_foot', width=400, height=460,
+                              border=True, no_scrollbar=True):
+            dpg.add_text('01  /  PIJAKAN SENSOR', tag='foot_title',
+                         color=DARK_GREEN)
             self.bind_font('foot_title','section')
-            dpg.add_text('PEMBACAAN LEVEL PIJAKAN (ARDUINO)',color=MUTED)
+            dpg.add_spacer(height=6)
+
             with dpg.group(horizontal=True):
-                dpg.add_text('0%',tag='foot_level',color=INK)
-                self.bind_font('foot_level','hero')
-                dpg.add_spacer(width=25)
-                dpg.add_text('Real-time · skala relatif 0-100',color=MUTED,wrap=180)
-            with dpg.drawlist(width=235,height=115,tag='foot_draw'):
-                dpg.draw_rectangle((25,9),(96,113),fill=PALE,color=LINE,rounding=12)
-                dpg.draw_rectangle((31,108),(90,108),fill=GREEN,color=GREEN,
-                                   rounding=9,tag='foot_fill')
-                for y,txt in ((9,'100%'),(55,'50%'),(103,'0%')):
-                    dpg.draw_text((112,y),txt,color=MUTED,size=17)
-            with dpg.group(horizontal=True):
-                self.add_foot_metric('RATA-RATA','foot_avg')
-                self.add_foot_metric('SAMPEL TEREKAM','foot_count')
+                with dpg.group():
+                    dpg.add_text('0%', tag='foot_level', color=INK)
+                    self.bind_font('foot_level','hero')
+                    dpg.add_text('LEVEL PIJAKAN', color=MUTED)
+                dpg.add_spacer(width=10)
+                with dpg.drawlist(width=145, height=117, tag='foot_draw'):
+                    dpg.draw_rectangle((23,8),(90,110),fill=PALE,
+                                       color=LINE,rounding=12)
+                    dpg.draw_rectangle((29,104),(84,104),fill=GREEN,
+                                       color=GREEN,rounding=9,tag='foot_fill')
+                    for y,txt in ((8,'100%'),(54,'50%'),(97,'0%')):
+                        dpg.draw_text((102,y),txt,color=MUTED,size=14)
+                dpg.add_spacer(width=8)
+                with dpg.group():
+                    dpg.add_text('RATA-RATA', color=MUTED)
+                    dpg.add_text('--', tag='foot_avg', color=DARK_GREEN)
+                    self.bind_font('foot_avg','metric')
+                    dpg.add_spacer(height=4)
+                    dpg.add_text('SAMPEL', color=MUTED)
+                    dpg.add_text('0', tag='foot_count', color=DARK_GREEN)
+                    self.bind_font('foot_count','metric')
+
             dpg.add_separator()
-            dpg.add_text('TREN PIJAKAN REAL-TIME',color=DARK_GREEN)
-            with dpg.plot(tag='foot_plot',height=200,width=-1,no_menus=True,no_box_select=True):
-                dpg.add_plot_legend()
-                dpg.add_plot_axis(dpg.mvXAxis,label='Sampel terkini',tag='foot_axis_x',no_tick_labels=True)
-                with dpg.plot_axis(dpg.mvYAxis,label='Level',tag='foot_axis_y'):
-                    dpg.add_line_series([],[],label='Level pijakan',tag='foot_series')
+            dpg.add_text('TREN PIJAKAN', color=DARK_GREEN)
+            with dpg.plot(tag='foot_plot', height=220, width=-1,
+                          no_menus=True, no_box_select=True):
+                dpg.add_plot_axis(dpg.mvXAxis, tag='foot_axis_x', no_tick_labels=True)
+                with dpg.plot_axis(dpg.mvYAxis, tag='foot_axis_y'):
+                    dpg.add_line_series([], [], label='Pijakan', tag='foot_series')
             dpg.set_axis_limits('foot_axis_y',0,100)
-            dpg.add_text('Rekaman CSV berjalan saat MULAI; jeda saat PAUSE.',tag='foot_hint',color=MUTED,wrap=360)
         dpg.bind_item_theme('panel_foot','theme_card')
 
     def add_foot_metric(self,name,tag):
@@ -672,10 +688,9 @@ class KursiMuApp:
                 dpg.add_text('RELAXATION & HEALTH MONITORING',color=MUTED)
                 if self.demo:
                     dpg.add_text('DATA SIMULASI',color=ORANGE)
-                dpg.add_spacer(width=40,tag='close_spacer')
-                dpg.add_button(label='TUTUP APLIKASI   X',tag='btn_close',
-                               callback=self.request_close,height=36,width=185)
-                dpg.bind_item_theme('btn_close','theme_close')
+            dpg.add_button(label='TUTUP APLIKASI   X',tag='btn_close',
+                           callback=self.request_close,height=36,width=185)
+            dpg.bind_item_theme('btn_close','theme_close')
             with dpg.group(horizontal=True,tag='state_row'):
                 dpg.add_text('BP KursiMu:',color=MUTED)
                 dpg.add_text('DEMO' if self.demo else 'Mencari...',tag='ble_state',color=ORANGE)
@@ -687,7 +702,7 @@ class KursiMuApp:
                 dpg.add_text('DEMO' if self.demo else '--',tag='bp_state',color=DARK_GREEN)
                 dpg.add_spacer(width=15)
                 dpg.add_text(datetime.now().strftime('%d %b %Y  %H:%M'),tag='clock',color=MUTED)
-            dpg.add_text('Siap. Mulai sesi setelah pengukuran AWAL.',tag='activity_line',color=MUTED,wrap=1300)
+            dpg.add_text('Lakukan pengukuran AWAL, lalu mulai relaksasi.',tag='activity_line',color=MUTED)
             with dpg.child_window(tag='toolbar',height=204,width=-1,border=True,no_scrollbar=True):
                 with dpg.group(horizontal=True,tag='identity_row'):
                     dpg.add_text('NAMA PENGGUNA',color=MUTED)
@@ -704,12 +719,12 @@ class KursiMuApp:
                     dpg.bind_item_theme('btn_new','theme_neutral')
                 dpg.add_separator()
                 with dpg.group(horizontal=True,tag='action_row'):
-                    dpg.add_button(label='MULAI RELAKSASI',tag='btn_start',height=47,width=250,
+                    dpg.add_button(label='MULAI',tag='btn_start',height=47,width=250,
                                    callback=self.begin_relaxation)
                     dpg.add_button(label='PAUSE',tag='btn_pause',height=47,width=250,
                                    callback=self.pause_relaxation)
                     dpg.bind_item_theme('btn_pause','theme_pause')
-                    dpg.add_button(label='SELESAI & SIMPAN',tag='btn_finish',height=47,width=250,
+                    dpg.add_button(label='SELESAI',tag='btn_finish',height=47,width=250,
                                    callback=self.finish_relaxation)
                     dpg.bind_item_theme('btn_finish','theme_finish')
                     dpg.add_button(label='PILIH MUSIK',tag='btn_music',height=47,width=250,
@@ -719,7 +734,7 @@ class KursiMuApp:
                     dpg.add_text('COM PIJAKAN',color=MUTED)
                     dpg.add_combo(items=['Pilih COM'],default_value='Pilih COM',
                                   tag='port_combo',width=155)
-                    dpg.add_button(label='REFRESH PORT',tag='btn_refresh',callback=self.refresh_ports,width=150)
+                    dpg.add_button(label='REFRESH',tag='btn_refresh',callback=self.refresh_ports,width=150)
                     dpg.bind_item_theme('btn_refresh','theme_neutral')
                     dpg.add_button(label='SAMBUNG / PUTUS',tag='btn_connect',callback=self.toggle_serial,width=185)
                     dpg.bind_item_theme('btn_connect','theme_connect')
@@ -728,7 +743,7 @@ class KursiMuApp:
                     dpg.add_text(self.music_path.name if self.music_path else 'Belum ada file musik',
                                  tag='music_label',color=DARK_GREEN)
                 with dpg.group(horizontal=True,tag='recovery_row'):
-                    dpg.add_text('HASIL BP BELUM DIPASANGKAN:',color=MUTED)
+                    dpg.add_text('HASIL BP:',color=MUTED)
                     dpg.add_text('Tidak ada',tag='unassigned_label',color=DARK_GREEN)
                     dpg.add_button(label='KE AWAL',tag='assign_awal',show=False,
                                    callback=lambda *args: self.assign_unassigned('awal'))
@@ -759,41 +774,55 @@ class KursiMuApp:
         self.layout(force=True)
         self.update_buttons()
 
-    def layout(self,force=False):
-        width = max(850,dpg.get_viewport_width())
-        height = max(650,dpg.get_viewport_height())
-        key=(width,height)
-        if not force and self.last_layout_size==key:
+
+    def layout(self, force=False):
+        width = max(850, dpg.get_viewport_width())
+        height = max(650, dpg.get_viewport_height())
+        key = (width, height)
+        if not force and self.last_layout_size == key:
             return
-        self.last_layout_size=key
+        self.last_layout_size = key
         dpg.configure_item('main',width=width,height=height)
-        # Header close button aligned to far right.
-        dpg.configure_item('close_spacer',width=max(8,width-(910 if self.demo else 740)))
-        content_width=width-47
-        button_width=max(165,(content_width - 42)//4)
+        dpg.set_item_pos('btn_close',[max(8,width-207),8])
+
+        # Balanced full-width action row.
+        content_width = width - 44
+        button_width = max(150,(content_width - 30)//4)
         for tag in ('btn_start','btn_pause','btn_finish','btn_music'):
             dpg.configure_item(tag,width=button_width)
-        # Expand identity fields across wide monitors.
+
         extra=max(0,width-1380)
         dpg.configure_item('patient_name',width=235+extra//3)
         dpg.configure_item('patient_id',width=190+extra//3)
-        dpg.configure_item('connection_spacer',width=max(8,width-1015))
-        footer_h=83 if height>=850 else 67
-        toolbar_h=202
-        # Three cards fill the middle of the viewport; footer stays thin.
-        panel_h=max(330,height-(toolbar_h+footer_h+137))
-        panel_w=max(255,(width-52)//3)
+        dpg.configure_item('connection_spacer',width=max(8,width-1030))
+
+        toolbar_h=174
+        footer_h=64 if height>=800 else 52
+        panel_h=min(508,max(335,height-toolbar_h-footer_h-134))
+        panel_w=max(260,(width-52)//3)
+
         dpg.configure_item('toolbar',height=toolbar_h)
         for panel in ('panel_foot','panel_awal','panel_akhir'):
             dpg.configure_item(panel,width=panel_w,height=panel_h)
-        dpg.configure_item('foot_plot',height=max(105,min(275,panel_h-373)))
+
+        # Responsive metric cells - avoid width=-1 inside horizontal groups.
+        metric_width=max(74,(panel_w-36)//3)
+        for target in ('awal','akhir'):
+            for metric in ('pulse','pp','map'):
+                dpg.configure_item(f'metric_box_{target}_{metric}',width=metric_width)
+        delta_width=max(54,(panel_w-45)//5)
+        for metric in ('sys','dia','pulse','pp','map'):
+            dpg.configure_item(f'delta_box_{metric}',width=delta_width)
+
+        dpg.configure_item('foot_plot',height=max(155,min(300,panel_h-196)))
         dpg.configure_item('footer_logos',height=footer_h)
         if self.logos:
-            max_img_h=max(32,footer_h-26)
-            max_img_w=max(70,(width-55)//max(1,len(self.logos))-12)
+            max_img_h=max(28,footer_h-22)
+            max_img_w=max(60,(width-55)//len(self.logos)-12)
             for i,(_,w,h,_) in enumerate(self.logos):
                 scale=min(max_img_w/w,max_img_h/h)
-                dpg.configure_item(f'logo_img_{i}',width=max(1,int(w*scale)),height=max(1,int(h*scale)))
+                dpg.configure_item(f'logo_img_{i}',width=max(1,int(w*scale)),
+                                   height=max(1,int(h*scale)))
 
     def log(self, message):
         stamp=datetime.now().strftime('%H:%M:%S')
@@ -838,8 +867,8 @@ class KursiMuApp:
             self.foot_history_y.pop(0)
         dpg.set_value('foot_series',[self.foot_history_x,self.foot_history_y])
         dpg.set_value('foot_level',f'{value}%')
-        top=108-value/100*94
-        dpg.configure_item('foot_fill',pmin=(31,top),pmax=(90,108))
+        top=104-value/100*72
+        dpg.configure_item('foot_fill',pmin=(29,top),pmax=(84,104))
         if self.session_state=='RUNNING' and self.foot_writer:
             now=time.monotonic()
             if now-self.last_foot_logged>=FOOT_LOG_MIN_PERIOD:
@@ -1120,12 +1149,9 @@ class KursiMuApp:
         dpg.set_value(f'{target}_pulse',str(result['pulse']))
         dpg.set_value(f'{target}_pp',str(result['pp']))
         dpg.set_value(f'{target}_map',f'{result["map"]:.1f}')
-        for metric,max_val in (('sys',200),('dia',200),('pulse',150)):
-            val=result[metric]
-            dpg.set_value(f'{target}_bar_{metric}',min(1.0,max(0.0,val/max_val)))
-            dpg.configure_item(f'{target}_bar_{metric}',overlay=str(val))
         dpg.set_value(f'{target}_session',str(result['session']))
-        dpg.set_value(f'{target}_detail',f'Direkam: {result["timestamp"].replace("T"," ")}')
+        dpg.set_value(f'{target}_time',result['timestamp'][11:16])
+        dpg.set_value(f'{target}_detail',f'Direkam {result["timestamp"].replace("T"," ")}')
         self.update_deltas()
         self.log(f'BP {target.upper()}: {result["sys"]}/{result["dia"]} mmHg; PP {result["pp"]}; MAP {result["map"]}')
 
@@ -1204,7 +1230,7 @@ class KursiMuApp:
         dpg.set_value('patient_id','')
         for target in ('awal','akhir'):
             dpg.set_value(f'{target}_hero','-- / --')
-            for field in ('pulse','pp','map','session'):
+            for field in ('pulse','pp','map','session','time'):
                 dpg.set_value(f'{target}_{field}','--')
             dpg.set_value(f'{target}_detail','Belum ada pengukuran')
         self.foot_history_x.clear()
@@ -1213,10 +1239,6 @@ class KursiMuApp:
         dpg.set_value('foot_series',[[],[]])
         dpg.set_value('foot_avg','--')
         dpg.set_value('foot_count','0')
-        for target in ('awal','akhir'):
-            for metric in ('sys','dia','pulse'):
-                dpg.set_value(f'{target}_bar_{metric}',0.0)
-                dpg.configure_item(f'{target}_bar_{metric}',overlay='--')
         self.update_deltas()
         self.update_foot(self.last_foot)
         self.update_buttons()
