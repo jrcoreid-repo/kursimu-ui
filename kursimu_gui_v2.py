@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.4 - expanded medical dashboard and colored parameter cards.
+KursiMu GUI v2.5 - color-coded icon toolbar with accessible action labels.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -449,13 +449,24 @@ class KursiMuApp:
         if font is None:
             return
         with dpg.font_registry():
-            self.fonts['base'] = dpg.add_font(str(font), 16)
+            # DearPyGui only renders glyphs explicitly included in the font atlas.
+            # Register simple transport/music symbols for the action toolbar.
+            with dpg.font(str(font), 16) as base_font:
+                dpg.add_font_chars([0x25B6, 0x23F8, 0x25A0, 0x266B])
+            self.fonts['base'] = base_font
             self.fonts['small'] = dpg.add_font(str(font), 14)
             self.fonts['title'] = dpg.add_font(str(bold if bold.exists() else font), 25)
             self.fonts['hero'] = dpg.add_font(str(bold if bold.exists() else font), 40)
             self.fonts['section'] = dpg.add_font(str(bold if bold.exists() else font), 19)
             self.fonts['metric'] = dpg.add_font(str(bold if bold.exists() else font), 23)
             self.fonts['compare'] = dpg.add_font(str(bold if bold.exists() else font), 28)
+            # Windows Segoe UI Symbol covers the icons more reliably than Segoe UI.
+            # Keep Latin glyphs as well so full button labels remain readable.
+            icon_font = Path('C:/Windows/Fonts/seguisym.ttf')
+            button_font = icon_font if icon_font.is_file() else font
+            with dpg.font(str(button_font), 19) as action_font:
+                dpg.add_font_chars([0x25B6, 0x23F8, 0x25A0, 0x266B])
+            self.fonts['action'] = action_font
         dpg.bind_font(self.fonts['base'])
 
     def bind_font(self, tag, name):
@@ -497,8 +508,10 @@ class KursiMuApp:
                 dpg.add_theme_color(dpg.mvThemeCol_Text,WHITE)
         with dpg.theme(tag='theme_pause'):
             with dpg.theme_component(dpg.mvButton):
-                dpg.add_theme_color(dpg.mvThemeCol_Button,(206,146,42,255))
-                dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered,(179,119,22,255))
+                dpg.add_theme_color(dpg.mvThemeCol_Button,(165,105,18,255))
+                dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered,(136,82,11,255))
+                dpg.add_theme_color(dpg.mvThemeCol_ButtonActive,(117,70,9,255))
+                dpg.add_theme_color(dpg.mvThemeCol_Text,WHITE)
         with dpg.theme(tag='theme_finish'):
             with dpg.theme_component(dpg.mvButton):
                 dpg.add_theme_color(dpg.mvThemeCol_Button,(188,76,78,255))
@@ -782,18 +795,20 @@ class KursiMuApp:
                     dpg.bind_item_theme('btn_new','theme_neutral')
                 dpg.add_separator()
                 with dpg.group(horizontal=True,tag='action_row'):
-                    dpg.add_button(label='MULAI',tag='btn_start',height=47,width=250,
+                    dpg.add_button(label='▶  MULAI',tag='btn_start',height=47,width=250,
                                    callback=self.begin_relaxation)
                     dpg.bind_item_theme('btn_start','theme_measure')
-                    dpg.add_button(label='PAUSE',tag='btn_pause',height=47,width=250,
+                    dpg.add_button(label='⏸  PAUSE',tag='btn_pause',height=47,width=250,
                                    callback=self.pause_relaxation)
                     dpg.bind_item_theme('btn_pause','theme_pause')
-                    dpg.add_button(label='SELESAI',tag='btn_finish',height=47,width=250,
+                    dpg.add_button(label='■  SELESAI',tag='btn_finish',height=47,width=250,
                                    callback=self.finish_relaxation)
                     dpg.bind_item_theme('btn_finish','theme_finish')
-                    dpg.add_button(label='PILIH MUSIK',tag='btn_music',height=47,width=250,
+                    dpg.add_button(label='♫  PILIH MUSIK',tag='btn_music',height=47,width=250,
                                    callback=lambda *args: dpg.show_item('music_dialog'))
                     dpg.bind_item_theme('btn_music','theme_music')
+                    for action_tag in ('btn_start','btn_pause','btn_finish','btn_music'):
+                        self.bind_font(action_tag,'action')
                 with dpg.group(horizontal=True,tag='connect_row'):
                     dpg.add_text('COM PIJAKAN',color=MUTED)
                     dpg.add_combo(items=['Pilih COM'],default_value='Pilih COM',
@@ -1197,7 +1212,7 @@ class KursiMuApp:
         dpg.configure_item('btn_akhir',enabled=ready and not busy and self.session_state in ('RUNNING','PAUSED'))
         dpg.configure_item('btn_start',enabled=self.session_state=='IDLE' and not self.pending_target)
         dpg.configure_item('btn_pause',enabled=self.session_state in ('RUNNING','PAUSED'),
-                           label='LANJUTKAN' if self.session_state=='PAUSED' else 'PAUSE')
+                           label='▶  LANJUTKAN' if self.session_state=='PAUSED' else '⏸  PAUSE')
         dpg.configure_item('btn_finish',enabled=self.session_state in ('RUNNING','PAUSED') and not self.pending_target)
         dpg.configure_item('btn_new',enabled=self.session_state in ('IDLE','FINISHED') and not self.pending_target)
 
