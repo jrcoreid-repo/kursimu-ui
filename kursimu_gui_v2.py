@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.5.1 - distinct button colors when enabled and disabled.
+KursiMu GUI v2.6 - consolidated foot sensor layout and robust MP3 discovery.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -68,6 +68,45 @@ LOGO_DIR.mkdir(exist_ok=True)
 MUSIC_DIR = ROOT / "music"
 MUSIC_DIR.mkdir(exist_ok=True)
 DEFAULT_MUSIC = MUSIC_DIR / "relaksasi.mp3"
+MUSIC_EXTENSIONS = {".mp3", ".wav", ".ogg"}
+USER_SETTINGS_FILE = DATA_DIR / "ui_settings.json"
+
+
+def discover_music() -> Path | None:
+    """Discover any playable-extension file under music/, regardless of filename."""
+    try:
+        songs = sorted(
+            (p.resolve() for p in MUSIC_DIR.iterdir()
+             if p.is_file() and p.suffix.lower() in MUSIC_EXTENSIONS
+             and not p.name.startswith(".")),
+            key=lambda p: (p.name.casefold() != "relaksasi.mp3",
+                           p.suffix.lower() != ".mp3", p.name.casefold()),
+        )
+    except OSError:
+        songs = []
+    return songs[0] if songs else None
+
+
+def remembered_music() -> Path | None:
+    """Restore a manually selected track; otherwise use music/ auto-discovery."""
+    try:
+        with USER_SETTINGS_FILE.open("r", encoding="utf-8") as f:
+            entry = json.load(f)
+        selected = Path(entry.get("music_path", ""))
+        if selected.is_file() and selected.suffix.lower() in MUSIC_EXTENSIONS:
+            return selected.resolve()
+    except (OSError, ValueError, TypeError, AttributeError):
+        pass
+    return discover_music()
+
+
+def save_music_choice(path: Path) -> None:
+    # Only a local music path, no patient data.
+    data = {"music_path": str(path.resolve())}
+    temp = USER_SETTINGS_FILE.with_suffix(".tmp")
+    with temp.open("w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+    temp.replace(USER_SETTINGS_FILE)
 FOOT_LOG_MIN_PERIOD = 0.20   # 5 samples/s maximum written from Arduino readings
 
 
@@ -423,7 +462,7 @@ class KursiMuApp:
         self.session_files: dict[str, Path] = {}
         self.foot_file: TextIO | None = None
         self.foot_writer = None
-        self.music_path = DEFAULT_MUSIC if DEFAULT_MUSIC.exists() else None
+        self.music_path = remembered_music()
         self.audio_ready = False
         self.audio_playing = False
         self.audio_error = ""
@@ -495,7 +534,11 @@ class KursiMuApp:
                 dpg.add_theme_style(dpg.mvStyleVar_FrameRounding,7)
                 dpg.add_theme_style(dpg.mvStyleVar_ChildRounding,12)
                 dpg.add_theme_style(dpg.mvStyleVar_WindowBorderSize,0)
-        with dpg.theme(tag='theme_card'):
+        with dpg.theme(tag='theme_foot_progress'):
+            with dpg.theme_component(dpg.mvProgressBar):
+                dpg.add_theme_color(dpg.mvThemeCol_PlotHistogram, GREEN)
+                dpg.add_theme_color(dpg.mvThemeCol_FrameBg, MINT_TINT)
+        with dpg.theme(tag='theme_card')
             with dpg.theme_component(dpg.mvChildWindow):
                 dpg.add_theme_color(dpg.mvThemeCol_ChildBg,WHITE)
                 dpg.add_theme_color(dpg.mvThemeCol_Border,LINE)
@@ -673,33 +716,35 @@ class KursiMuApp:
         dpg.bind_item_theme(tag, 'theme_card')
 
 
+
     def add_foot_panel(self):
+        # Three aligned metric cards replace scattered gauge and text.
+        # Single wide progress bar and full-width graph remain the focus.
         with dpg.child_window(tag='panel_foot', width=400, height=490,
                               border=True, no_scrollbar=True):
-            dpg.add_text('01  /  PIJAKAN SENSOR', tag='foot_title', color=DARK_GREEN)
-            self.bind_font('foot_title', 'section')
-            dpg.add_spacer(height=8)
+            dpg.add_text('01  /  PIJAKAN SENSOR', tag='foot_title',
+                         color=DARK_GREEN)
+            self.bind_font('foot_title','section')
+            dpg.add_spacer(height=10)
             with dpg.group(horizontal=True):
-                with dpg.group():
-                    dpg.add_text('0%', tag='foot_level', color=MED_TEAL)
-                    self.bind_font('foot_level', 'hero')
-                    dpg.add_text('LEVEL PIJAKAN', color=MUTED)
-                dpg.add_spacer(width=15)
-                with dpg.drawlist(width=145, height=110, tag='foot_draw'):
-                    dpg.draw_rectangle((23,8),(90,105),fill=MINT_TINT,
-                                       color=LINE,rounding=12)
-                    dpg.draw_rectangle((29,99),(84,99),fill=GREEN,
-                                       color=GREEN,rounding=9,tag='foot_fill')
-                    for y,txt in ((6,'100%'),(51,'50%'),(92,'0%')):
-                        dpg.draw_text((102,y),txt,color=MUTED,size=14)
-                dpg.add_spacer(width=15)
-                with dpg.group():
-                    dpg.add_text('RATA-RATA',color=MUTED)
-                    dpg.add_text('--',tag='foot_avg',color=MED_TEAL)
-                    self.bind_font('foot_avg','metric')
-                    dpg.add_text('SAMPEL',color=MUTED)
-                    dpg.add_text('0',tag='foot_count',color=DARK_GREEN)
-                    self.bind_font('foot_count','metric')
+                for field, title, default, theme, accent, font in (
+                    ('foot_level','LEVEL SAAT INI','0%', 'tile_diastolic',MED_TEAL,'hero'),
+                    ('foot_avg','RATA-RATA','--', 'tile_hr',MED_BLUE,'metric'),
+                    ('foot_count','SAMPEL','0', 'tile_pp',MED_AMBER,'metric'),
+                ):
+                    box='foot_box_'+field
+                    with dpg.child_window(tag=box, width=150, height=108,
+                                          border=True, no_scrollbar=True):
+                        dpg.add_text(title,color=MUTED)
+                        dpg.add_spacer(height=4)
+                        dpg.add_text(default,tag=field,color=accent)
+                        self.bind_font(field,font)
+                    dpg.bind_item_theme(box,theme)
+            dpg.add_spacer(height=8)
+            dpg.add_progress_bar(tag='foot_progress',default_value=0,
+                                 overlay='0%',width=-1,height=24)
+            dpg.bind_item_theme('foot_progress','theme_foot_progress')
+            dpg.add_spacer(height=8)
             dpg.add_separator()
             dpg.add_text('GRAFIK PIJAKAN REAL-TIME',color=DARK_GREEN)
             with dpg.plot(tag='foot_plot',height=190,width=-1,
@@ -821,7 +866,7 @@ class KursiMuApp:
                                    callback=self.finish_relaxation)
                     dpg.bind_item_theme('btn_finish','theme_finish')
                     dpg.add_button(label='♫  PILIH MUSIK',tag='btn_music',height=47,width=250,
-                                   callback=lambda *args: dpg.show_item('music_dialog'))
+                                   callback=self.open_music_picker)
                     dpg.bind_item_theme('btn_music','theme_music')
                     for action_tag in ('btn_start','btn_pause','btn_finish','btn_music'):
                         self.bind_font(action_tag,'action')
@@ -835,7 +880,7 @@ class KursiMuApp:
                     dpg.bind_item_theme('btn_connect','theme_connect')
                     dpg.add_spacer(width=20,tag='connection_spacer')
                     dpg.add_text('LAGU:',color=MUTED)
-                    dpg.add_text(self.music_path.name if self.music_path else 'Belum ada file musik',
+                    dpg.add_text(self.music_path.name if self.music_path else 'MP3 belum ditemukan - pilih musik',
                                  tag='music_label',color=DARK_GREEN)
                 with dpg.group(horizontal=True,tag='recovery_row'):
                     dpg.add_text('HASIL BP:',color=MUTED)
@@ -850,12 +895,18 @@ class KursiMuApp:
                 self.add_bp_panel('akhir','03','AKHIR')
             self.add_comparison_panel()
             self.add_image_footer()
-        with dpg.file_dialog(tag='music_dialog',show=False,directory_selector=False,
-                             callback=self.choose_music,cancel_callback=lambda *args:None,
-                             width=750,height=450):
-            dpg.add_file_extension('.mp3')
-            dpg.add_file_extension('.wav')
-            dpg.add_file_extension('.ogg')
+        with dpg.file_dialog(tag='music_dialog', show=False, directory_selector=False,
+                             callback=self.choose_music,
+                             cancel_callback=lambda *args: None,
+                             default_path=str(MUSIC_DIR), modal=True,
+                             width=880, height=560):
+            dpg.add_file_extension('.*', color=(120,160,145,255))
+            dpg.add_file_extension('.mp3', color=(32,132,82,255))
+            dpg.add_file_extension('.wav', color=(32,132,82,255))
+            dpg.add_file_extension('.ogg', color=(32,132,82,255))
+            dpg.add_file_extension('.MP3')
+            dpg.add_file_extension('.WAV')
+            dpg.add_file_extension('.OGG')
         with dpg.window(tag='confirm_close',label='Konfirmasi Keluar',modal=True,
                         show=False,no_resize=True,width=470,height=165):
             dpg.add_text('Sesi sedang berlangsung. Simpan hasil dan tutup aplikasi?')
@@ -867,6 +918,7 @@ class KursiMuApp:
         dpg.setup_dearpygui()
         dpg.show_viewport()
         self.refresh_ports()
+        self.refresh_music()
         self.layout(force=True)
         self.update_buttons()
 
@@ -906,6 +958,8 @@ class KursiMuApp:
         dpg.configure_item('footer_logos',height=footer_h)
         big_w=max(105,(panel_w-36)//2)
         small_w=max(73,(panel_w-46)//3)
+        for foot_tag in ('foot_level','foot_avg','foot_count'):
+            dpg.configure_item('foot_box_'+foot_tag, width=small_w)
         for target in ('awal','akhir'):
             for metric in ('sys','dia'):
                 dpg.configure_item(f'bp_box_{target}_{metric}',width=big_w)
@@ -928,7 +982,7 @@ class KursiMuApp:
         for metric in ('sys','dia','pulse','pp','map'):
             dpg.configure_item(f'delta_box_{metric}',width=delta_w)
         # Scale chart to actual remaining space, including axis and card padding.
-        chart_h=max(100,min(260,panel_h-231))
+        chart_h=max(95,min(270,panel_h-225))
         dpg.configure_item('foot_plot',height=chart_h)
         if self.logos:
             max_img_h=max(24,footer_h-18)
@@ -984,8 +1038,8 @@ class KursiMuApp:
         dpg.set_axis_limits('foot_axis_x',max(0,self.foot_tick-60),
                             max(60,self.foot_tick))
         dpg.set_value('foot_level',f'{value}%')
-        top=99-value/100*66
-        dpg.configure_item('foot_fill',pmin=(29,top),pmax=(84,99))
+        dpg.set_value('foot_progress', value / 100.0)
+        dpg.configure_item('foot_progress', overlay=f'{value}%')
         if self.session_state=='RUNNING' and self.foot_writer:
             now=time.monotonic()
             if now-self.last_foot_logged>=FOOT_LOG_MIN_PERIOD:
@@ -1017,12 +1071,56 @@ class KursiMuApp:
         seconds=int(seconds)
         return f'{seconds//3600:02}:{seconds%3600//60:02}:{seconds%60:02}'
 
-    def choose_music(self,sender,app_data,user_data=None):
-        filename=app_data.get('file_path_name')
-        if filename:
-            self.music_path=Path(filename)
+
+    def refresh_music(self, force=False):
+        # Refresh automatically if the user copies a track into music/
+        # while the GUI is open. A remembered manual choice takes priority.
+        if force or not self.music_path or not self.music_path.is_file():
+            self.music_path = remembered_music()
+        if self.music_path and self.music_path.is_file():
             dpg.set_value('music_label',self.music_path.name)
-            self.log(f'Musik dipilih: {self.music_path.name}')
+            return True
+        dpg.set_value('music_label','Belum ditemukan · cek folder music/')
+        return False
+
+    def open_music_picker(self, *_):
+        self.refresh_music()
+        self.log('Pilih MP3/WAV/OGG; folder awal: '+str(MUSIC_DIR))
+        dpg.show_item('music_dialog')
+
+    def choose_music(self, sender, app_data, user_data=None):
+        # DPG versions can return file_path_name or selections.
+        app_data = app_data or {}
+        name = app_data.get('file_path_name')
+        if not name and app_data.get('selections'):
+            name = next(iter(app_data['selections'].values()), None)
+        if not name:
+            self.log('Belum ada file yang dipilih')
+            return
+        candidate = Path(name).expanduser()
+        if not candidate.is_absolute():
+            candidate = Path(app_data.get('current_path') or MUSIC_DIR) / candidate
+        if candidate.suffix.lower() not in MUSIC_EXTENSIONS:
+            self.log('Format tidak didukung. Pilih MP3, WAV, atau OGG.')
+            return
+        try:
+            candidate = candidate.resolve(strict=True)
+            if not candidate.is_file():
+                raise OSError('Bukan file musik')
+            with candidate.open('rb') as f:
+                if not f.read(64):
+                    raise OSError('File kosong')
+        except (OSError, ValueError) as exc:
+            self.log('Tidak bisa membaca file musik: '+str(exc))
+            dpg.set_value('music_label','File gagal dibaca - pilih lagi')
+            return
+        self.music_path = candidate
+        dpg.set_value('music_label',candidate.name)
+        try:
+            save_music_choice(candidate)
+        except OSError as exc:
+            self.log('Musik dipilih, tetapi pilihan tidak tersimpan: '+str(exc))
+        self.log('Musik siap dipilih: '+candidate.name)
 
     def init_audio(self):
         if pygame is None:
@@ -1038,27 +1136,31 @@ class KursiMuApp:
             self.audio_ready=False
             return False
 
+
     def start_music(self):
+        # Scan again because the user may have added MP3 after opening the GUI.
+        self.refresh_music()
         if not self.music_path or not self.music_path.is_file():
+            self.log('Musik tidak ditemukan. Letakkan MP3 di: '+str(MUSIC_DIR))
             if self.demo:
-                self.log('[DEMO] Tidak ada musik; sesi simulasi berjalan tanpa audio')
+                self.log('[DEMO] Sesi simulasi berjalan tanpa musik')
                 return True
-            self.log('Pilih file musik relaksasi terlebih dahulu')
             return False
         if not self.init_audio():
-            if self.demo:
-                self.log(f'[DEMO] Audio tidak tersedia: {self.audio_error}')
-                return True
-            self.log(f'Musik gagal diputar: {self.audio_error}')
+            self.log('Audio belum siap: '+self.audio_error)
             return False
         try:
+            self.stop_music()
             pygame.mixer.music.load(str(self.music_path))
             pygame.mixer.music.set_volume(0.55)
             pygame.mixer.music.play(loops=-1)
             self.audio_playing=True
+            self.log('Musik diputar: '+self.music_path.name)
             return True
         except Exception as exc:
-            self.log(f'Audio tidak dapat dimulai: {exc}')
+            self.audio_playing=False
+            self.audio_error=str(exc)
+            self.log('Gagal membuka MP3: '+str(exc)+' | '+str(self.music_path))
             return False
 
     def stop_music(self):
