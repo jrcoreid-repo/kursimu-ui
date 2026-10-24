@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.5 - color-coded icon toolbar with accessible action labels.
+KursiMu GUI v2.5.1 - distinct button colors when enabled and disabled.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -506,17 +506,29 @@ class KursiMuApp:
                 dpg.add_theme_color(dpg.mvThemeCol_Button,GREEN)
                 dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered,DARK_GREEN)
                 dpg.add_theme_color(dpg.mvThemeCol_Text,WHITE)
+            with dpg.theme_component(dpg.mvButton, enabled_state=False):
+                dpg.add_theme_color(dpg.mvThemeCol_Button,(120,184,145,255))
+                dpg.add_theme_color(dpg.mvThemeCol_Text,(241,252,245,255))
+                dpg.add_theme_color(dpg.mvThemeCol_TextDisabled,(241,252,245,255))
         with dpg.theme(tag='theme_pause'):
             with dpg.theme_component(dpg.mvButton):
                 dpg.add_theme_color(dpg.mvThemeCol_Button,(165,105,18,255))
                 dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered,(136,82,11,255))
                 dpg.add_theme_color(dpg.mvThemeCol_ButtonActive,(117,70,9,255))
                 dpg.add_theme_color(dpg.mvThemeCol_Text,WHITE)
+            with dpg.theme_component(dpg.mvButton, enabled_state=False):
+                dpg.add_theme_color(dpg.mvThemeCol_Button,(207,169,100,255))
+                dpg.add_theme_color(dpg.mvThemeCol_Text,(255,249,236,255))
+                dpg.add_theme_color(dpg.mvThemeCol_TextDisabled,(255,249,236,255))
         with dpg.theme(tag='theme_finish'):
             with dpg.theme_component(dpg.mvButton):
                 dpg.add_theme_color(dpg.mvThemeCol_Button,(188,76,78,255))
                 dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered,(155,56,59,255))
                 dpg.add_theme_color(dpg.mvThemeCol_Text,WHITE)
+            with dpg.theme_component(dpg.mvButton, enabled_state=False):
+                dpg.add_theme_color(dpg.mvThemeCol_Button,(204,143,144,255))
+                dpg.add_theme_color(dpg.mvThemeCol_Text,(255,243,243,255))
+                dpg.add_theme_color(dpg.mvThemeCol_TextDisabled,(255,243,243,255))
         with dpg.theme(tag='theme_music'):
             with dpg.theme_component(dpg.mvButton):
                 dpg.add_theme_color(dpg.mvThemeCol_Button,BLUE)
@@ -537,6 +549,10 @@ class KursiMuApp:
                 dpg.add_theme_color(dpg.mvThemeCol_Button,(212,126,37,255))
                 dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered,(181,99,23,255))
                 dpg.add_theme_color(dpg.mvThemeCol_Text,WHITE)
+            with dpg.theme_component(dpg.mvButton, enabled_state=False):
+                dpg.add_theme_color(dpg.mvThemeCol_Button,(217,165,113,255))
+                dpg.add_theme_color(dpg.mvThemeCol_Text,(255,250,244,255))
+                dpg.add_theme_color(dpg.mvThemeCol_TextDisabled,(255,250,244,255))
         with dpg.theme(tag='theme_close'):
             with dpg.theme_component(dpg.mvButton):
                 dpg.add_theme_color(dpg.mvThemeCol_Button,(230,238,232,255))
