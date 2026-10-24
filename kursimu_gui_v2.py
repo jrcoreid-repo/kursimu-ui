@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.7 - light medical music picker and native Windows browse.
+KursiMu GUI v2.8 - guided eight-step session flow and status colors.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -34,6 +34,8 @@ import time
 import sys
 import ctypes
 from typing import TextIO
+
+from session_rules import evaluate_session
 
 try:
     import pygame
@@ -451,7 +453,8 @@ class KursiMuApp:
         self.foot_max = None
         self.last_foot_logged = 0.0
         self.last_foot_event = 0.0
-        self.session_state = "IDLE"  # IDLE/RUNNING/PAUSED/FINISHED
+        self.session_state = "IDLE"  # IDLE/RUNNING/PAUSED/FINISHED/SAVE_FAILED
+        self.baseline_identity: tuple[str, str] | None = None
         self.session_uid = None
         self.session_name = ""
         self.session_user_id = ""
@@ -857,15 +860,17 @@ class KursiMuApp:
             with dpg.child_window(tag='toolbar',height=204,width=-1,border=True,no_scrollbar=True):
                 with dpg.group(horizontal=True,tag='identity_row'):
                     dpg.add_text('NAMA PENGGUNA',color=MUTED)
-                    dpg.add_input_text(tag='patient_name',hint='Nama pengguna',width=235)
+                    dpg.add_input_text(tag='patient_name',hint='Nama pengguna',width=235,
+                                       callback=self.on_identity_changed)
                     dpg.add_text('ID PENGGUNA',color=MUTED)
-                    dpg.add_input_text(tag='patient_id',hint='ID unik pengguna',width=190)
+                    dpg.add_input_text(tag='patient_id',hint='ID unik pengguna',width=190,
+                                       callback=self.on_identity_changed)
                     dpg.add_spacer(width=15)
                     dpg.add_text('DURASI',color=MUTED)
                     dpg.add_text('00:00:00',tag='elapsed',color=DARK_GREEN)
                     dpg.add_spacer(width=8)
                     dpg.add_text('STATUS',color=MUTED)
-                    dpg.add_text('BELUM DIMULAI',tag='session_state',color=ORANGE)
+                    dpg.add_text('BELUM TERHUBUNG',tag='session_state',color=RED)
                     dpg.add_button(label='SESI BARU',tag='btn_new',width=140,callback=self.new_session)
                     dpg.bind_item_theme('btn_new','theme_neutral')
                 dpg.add_separator()
@@ -1048,6 +1053,9 @@ class KursiMuApp:
             dpg.set_value('port_combo','Pilih COM')
 
     def toggle_serial(self,*_):
+        if self.session_state!='IDLE' or self.pending_target is not None:
+            self.log('Port Pijakan hanya dapat diubah ketika IDLE dan BP tidak mengukur')
+            return
         if self.demo:
             self.log('Mode simulasi: serial Arduino tidak digunakan')
             return
@@ -1166,6 +1174,9 @@ class KursiMuApp:
             dpg.set_value('music_picker_status', selected.name)
 
     def open_music_picker(self, *_):
+        if not self.workflow().can_change_music:
+            self.log('Musik hanya bisa diganti saat IDLE')
+            return
         self.refresh_music()
         dpg.set_value('music_path_entry',
                       str(self.music_path) if self.music_path else '')
@@ -1208,6 +1219,10 @@ class KursiMuApp:
                           'Tempel lokasi lengkap file MP3 pada kolom di atas.')
 
     def use_music(self, *_):
+        if not self.workflow().can_change_music:
+            self.log('Musik tidak dapat diubah saat sesi berlangsung')
+            dpg.hide_item('music_dialog')
+            return
         filename = (dpg.get_value('music_path_entry') or '').strip().strip('"')
         if not filename:
             dpg.set_value('music_picker_status',
@@ -1441,18 +1456,51 @@ class KursiMuApp:
             self.log(f'Ringkasan CSV gagal: {exc}')
             return False
 
+
+    def on_identity_changed(self,*_):
+        self.update_buttons()
+
+    def workflow(self):
+        name=(dpg.get_value('patient_name') or '').strip()
+        user_id=(dpg.get_value('patient_id') or '').strip()
+        identity_ready=bool(name and user_id)
+        if self.baseline_identity is not None:
+            identity_ready=identity_ready and (name,user_id)==self.baseline_identity
+        bp_busy=bool(not self.demo and self.ble_connected and self.bp_status and
+                     (self.bp_status['state'] in (1,2,3,4) or self.bp_status['pending']))
+        return evaluate_session(
+            state=self.session_state,
+            bp_connected=self.ble_connected,
+            foot_connected=self.serial_connected,
+            bp_ready=self.demo or self.bp_status is not None,
+            identity_ready=identity_ready,
+            initial_ready=self.readings['awal'] is not None,
+            final_ready=self.readings['akhir'] is not None,
+            measuring=self.pending_target is not None,
+            bp_busy=bp_busy,
+            music_ready=self.demo or bool(self.music_path and self.music_path.is_file()),
+        )
+
     def update_buttons(self):
-        ready=self.demo or (self.ble_connected and self.bp_status is not None)
-        busy=self.pending_target is not None
-        if self.bp_status:
-            busy=busy or self.bp_status['state'] in (1,2,3,4) or self.bp_status['pending']
-        dpg.configure_item('btn_awal',enabled=ready and not busy and self.session_state=='IDLE')
-        dpg.configure_item('btn_akhir',enabled=ready and not busy and self.session_state in ('RUNNING','PAUSED'))
-        dpg.configure_item('btn_start',enabled=self.session_state=='IDLE' and not self.pending_target)
-        dpg.configure_item('btn_pause',enabled=self.session_state in ('RUNNING','PAUSED'),
+        d=self.workflow()
+        dpg.configure_item('btn_awal',enabled=d.can_measure_awal)
+        dpg.configure_item('btn_akhir',enabled=d.can_measure_akhir)
+        dpg.configure_item('btn_start',enabled=d.can_start)
+        dpg.configure_item('btn_pause',enabled=d.can_pause or d.can_resume,
                            label='▶  LANJUTKAN' if self.session_state=='PAUSED' else '⏸  PAUSE')
-        dpg.configure_item('btn_finish',enabled=self.session_state in ('RUNNING','PAUSED') and not self.pending_target)
-        dpg.configure_item('btn_new',enabled=self.session_state in ('IDLE','FINISHED') and not self.pending_target)
+        dpg.configure_item('btn_finish',enabled=d.can_finish)
+        dpg.configure_item('btn_new',enabled=d.can_new)
+        dpg.configure_item('btn_music',enabled=d.can_change_music)
+        dpg.configure_item('patient_name',enabled=d.can_edit_identity)
+        dpg.configure_item('patient_id',enabled=d.can_edit_identity)
+        can_change_port=self.session_state=='IDLE' and self.pending_target is None
+        for tag in ('port_combo','btn_connect','btn_refresh'):
+            dpg.configure_item(tag,enabled=can_change_port)
+        color={'red':RED,'yellow':ORANGE,'green':GREEN}[d.color]
+        dpg.set_value('session_state',d.phase)
+        dpg.configure_item('session_state',color=color)
+        dpg.set_value('activity_line',d.guidance)
+        dpg.configure_item('activity_line',color=color)
 
     def start_bp(self,target):
         if self.pending_target:
