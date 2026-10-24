@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.6 - consolidated foot sensor layout and robust MP3 discovery.
+KursiMu GUI v2.6.1 - shorten foot chart by 15 percent to avoid clipping.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -982,7 +982,7 @@ class KursiMuApp:
         for metric in ('sys','dia','pulse','pp','map'):
             dpg.configure_item(f'delta_box_{metric}',width=delta_w)
         # Scale chart to actual remaining space, including axis and card padding.
-        chart_h=max(95,min(270,panel_h-225))
+        chart_h=max(80,int(max(95,min(270,panel_h-225))*0.85))
         dpg.configure_item('foot_plot',height=chart_h)
         if self.logos:
             max_img_h=max(24,footer_h-18)
