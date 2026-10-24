@@ -1,0 +1,4 @@
+dearpygui>=1.11,<3
+bleak>=0.22,<3
+pyserial>=3.5,<4
+pygame-ce>=2.5,<3
