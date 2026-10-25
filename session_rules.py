@@ -49,7 +49,7 @@ def evaluate_session(
     The initial reading precedes music, and the final reading precedes save.
     Connection is not required to save already acquired final measurements.
     """
-    devices = bp_connected and foot_connected and bp_ready
+    devices = bp_connected and bp_ready  # Foot COM is optional; BP is mandatory.
     free = not measuring and not bp_busy
     idle = state == "IDLE"
     active = state in ("RUNNING", "PAUSED")
@@ -68,9 +68,9 @@ def evaluate_session(
     elif state == "SAVE_FAILED":
         phase, guidance, color = "GAGAL SIMPAN", "Ringkasan belum tersimpan. Ulangi SELESAI.", "red"
     elif state == "RUNNING" and not devices:
-        phase, guidance, color = "KONEKSI TERPUTUS", "Koneksi perangkat terputus; sesi akan dijeda.", "red"
+        phase, guidance, color = "KONEKSI TERPUTUS", "Koneksi BP terputus; sesi akan dijeda.", "red"
     elif state == "PAUSED" and not devices:
-        phase, guidance, color = "MENUNGGU KONEKSI", "Sesi dijeda. Hubungkan BP KursiMu dan Pijakan Sensor.", "red"
+        phase, guidance, color = "MENUNGGU KONEKSI", "Sesi dijeda. Hubungkan BP KursiMu untuk melanjutkan.", "red"
     elif state == "PAUSED" and final_ready:
         phase, guidance, color = "SIAP SELESAI", "Hasil AKHIR lengkap. Tekan SELESAI & SIMPAN.", "green"
     elif state == "RUNNING" and final_ready:
@@ -82,7 +82,7 @@ def evaluate_session(
     elif measuring or bp_busy:
         phase, guidance, color = "BP MENGUKUR", "Tunggu hasil pengukuran tekanan darah.", "yellow"
     elif not devices:
-        phase, guidance, color = "BELUM TERHUBUNG", "Hubungkan BP KursiMu dan Pijakan Sensor terlebih dahulu.", "red"
+        phase, guidance, color = "BELUM TERHUBUNG", "Hubungkan BP KursiMu terlebih dahulu.", "red"
     elif not identity_ready:
         phase, guidance, color = "ISI DATA PENGGUNA", "Isi Nama dan ID Pengguna sebelum UKUR AWAL.", "red"
     elif not initial_ready:
