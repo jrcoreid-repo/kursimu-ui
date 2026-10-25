@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.11.2 - parse 4-digit serial LEVEL=0000..0100.
+KursiMu GUI v2.11.3 - compact centered orange BP progress popup.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -565,6 +565,17 @@ class KursiMuApp:
                 dpg.add_theme_color(dpg.mvThemeCol_HeaderActive,(184,224,201,255))
                 dpg.add_theme_style(dpg.mvStyleVar_PopupRounding,8)
                 dpg.add_theme_style(dpg.mvStyleVar_PopupBorderSize,1)
+        with dpg.theme(tag='theme_bp_progress'):
+            with dpg.theme_component(dpg.mvWindowAppItem):
+                dpg.add_theme_color(dpg.mvThemeCol_WindowBg,(255,202,114,255))
+                dpg.add_theme_color(dpg.mvThemeCol_TitleBg,(231,146,45,255))
+                dpg.add_theme_color(dpg.mvThemeCol_TitleBgActive,(231,146,45,255))
+                dpg.add_theme_color(dpg.mvThemeCol_Text,(30,29,27,255))
+                dpg.add_theme_color(dpg.mvThemeCol_Border,(224,145,51,255))
+                dpg.add_theme_style(dpg.mvStyleVar_WindowPadding,14,9)
+                dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing,5,4)
+                dpg.add_theme_style(dpg.mvStyleVar_WindowBorderSize,1)
+                dpg.add_theme_style(dpg.mvStyleVar_WindowRounding,10)
         with dpg.theme(tag='theme_header'):
             with dpg.theme_component(dpg.mvChildWindow):
                 dpg.add_theme_color(dpg.mvThemeCol_ChildBg, (249, 253, 250, 255))
@@ -1023,16 +1034,14 @@ class KursiMuApp:
                 dpg.add_button(label='BATAL / SAMBUNG COM',width=240,height=40,
                                callback=lambda *args:dpg.hide_item('confirm_missing_foot'))
         dpg.bind_item_theme('confirm_missing_foot','theme_music_dialog')
-        with dpg.window(tag='bp_progress',label='Proses Pengukuran BP',
-                        show=False,modal=False,no_resize=True,no_move=False,
-                        width=535,height=170,no_close=True):
-            dpg.add_text('PERSIAPAN',tag='bp_progress_title',color=DARK_GREEN)
-            dpg.add_spacer(height=8)
+        with dpg.window(tag='bp_progress',label='PENGUKURAN BP',
+                        show=False,modal=False,no_resize=True,no_move=True,
+                        no_scrollbar=True,no_scroll_with_mouse=True,
+                        width=390,height=112,no_close=True):
+            dpg.add_text('PERSIAPAN',tag='bp_progress_title',color=(28,28,28,255))
             dpg.add_text('Menunggu respons perangkat BP...',tag='bp_progress_detail',
-                         color=MUTED,wrap=500)
-            dpg.add_spacer(height=12)
-            dpg.add_text('Jangan melepas manset selama pengukuran.',color=ORANGE)
-        dpg.bind_item_theme('bp_progress','theme_music_dialog')
+                         color=(42,38,30,255),wrap=355)
+        dpg.bind_item_theme('bp_progress','theme_bp_progress')
         with dpg.window(tag='confirm_close',label='Konfirmasi Keluar',modal=True,
                         show=False,no_resize=True,width=705,height=200):
             with dpg.group(tag='close_normal_group'):
@@ -1656,6 +1665,12 @@ class KursiMuApp:
         self.bp_popup_stage=stage
         dpg.set_value('bp_progress_title',stage)
         dpg.set_value('bp_progress_detail',detail)
+        # Always center relative to current viewport, including on first show.
+        popup_w,popup_h=390,112
+        dpg.configure_item('bp_progress',width=popup_w,height=popup_h)
+        dpg.set_item_pos('bp_progress',[
+            max(0,(dpg.get_viewport_width()-popup_w)//2),
+            max(0,(dpg.get_viewport_height()-popup_h)//2)])
         dpg.show_item('bp_progress')
         self.bp_popup_hide_at=(time.monotonic()+auto_close_ms/1000.0
                                if auto_close_ms is not None else None)
