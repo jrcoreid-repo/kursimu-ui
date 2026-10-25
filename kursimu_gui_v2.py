@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.9.4 - clean lifecycle exit and deprecation warning cleanup.
+KursiMu GUI v2.9.5 - improved spacing between session status and new-session action.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -923,6 +923,7 @@ class KursiMuApp:
                     dpg.add_spacer(width=8)
                     dpg.add_text('STATUS',color=MUTED)
                     dpg.add_text('BELUM TERHUBUNG',tag='session_state',color=RED)
+                    dpg.add_spacer(width=24)  # keep session status distinct from the next action
                     dpg.add_button(label='SESI BARU',tag='btn_new',width=140,callback=self.new_session)
                     dpg.bind_item_theme('btn_new','theme_neutral')
                 dpg.add_separator()
