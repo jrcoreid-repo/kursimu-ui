@@ -953,12 +953,26 @@ class KursiMuApp:
                          tag='music_picker_status', color=MUTED, wrap=735)
         dpg.bind_item_theme('music_dialog','theme_music_dialog')
         with dpg.window(tag='confirm_close',label='Konfirmasi Keluar',modal=True,
-                        show=False,no_resize=True,width=470,height=165):
-            dpg.add_text('Sesi sedang berlangsung. Simpan hasil dan tutup aplikasi?')
-            dpg.add_spacer(height=12)
+                        show=False,no_resize=True,width=705,height=185):
+            dpg.add_text('Sesi masih berlangsung. Simpan hanya jika BP AWAL dan AKHIR lengkap.')
+            dpg.add_text('Jika perangkat bermasalah, gunakan KELUAR DARURAT (tanpa ringkasan).',color=ORANGE)
+            dpg.add_spacer(height=14)
             with dpg.group(horizontal=True):
                 dpg.add_button(label='SIMPAN & TUTUP',width=205,callback=self.confirm_close)
-                dpg.add_button(label='BATAL',width=130,callback=lambda *args:dpg.hide_item('confirm_close'))
+                dpg.add_button(label='KELUAR DARURAT',width=205,
+                               callback=lambda *args:dpg.show_item('confirm_emergency'))
+                dpg.add_button(label='BATAL',width=120,
+                               callback=lambda *args:dpg.hide_item('confirm_close'))
+        with dpg.window(tag='confirm_emergency',label='Keluar Darurat',
+                        modal=True,show=False,no_resize=True,width=660,height=170):
+            dpg.add_text('KELUAR DARURAT: CSV pijakan yang sudah terekam akan dipertahankan.',color=RED)
+            dpg.add_text('Tidak dibuat ringkasan lengkap. BP AWAL/AKHIR tidak dipalsukan.',color=MUTED)
+            dpg.add_spacer(height=14)
+            with dpg.group(horizontal=True):
+                dpg.add_button(label='KELUAR TANPA RINGKASAN',width=250,
+                               callback=self.emergency_close)
+                dpg.add_button(label='BATAL',width=140,
+                               callback=lambda *args:dpg.hide_item('confirm_emergency'))
         dpg.set_primary_window('main',True)
         dpg.setup_dearpygui()
         dpg.show_viewport()
@@ -1749,6 +1763,36 @@ class KursiMuApp:
             dpg.show_item('confirm_close')
         else:
             dpg.stop_dearpygui()
+
+    def emergency_close(self,*_):
+        # Explicit recovery path if a device fails mid-session.
+        # Preserve raw foot CSV, but NEVER invent a completed BP summary.
+        if self.foot_file:
+            try:
+                self.foot_file.flush()
+                os.fsync(self.foot_file.fileno())
+            finally:
+                self.foot_file.close()
+                self.foot_file=None
+                self.foot_writer=None
+        self.stop_music()
+        if self.session_uid and self.session_files:
+            marker=self.session_files['pijakan'].with_name(
+                self.session_files['pijakan'].stem+'_BELUM_SELESAI.json'
+            )
+            try:
+                with marker.open('w',encoding='utf-8') as output:
+                    json.dump({
+                        'status':'INCOMPLETE_EMERGENCY_EXIT',
+                        'session_uid':self.session_uid,
+                        'waktu_keluar':datetime.now().isoformat(timespec='seconds'),
+                        'has_awal':self.readings['awal'] is not None,
+                        'has_akhir':self.readings['akhir'] is not None,
+                    },output,ensure_ascii=False,indent=2)
+            except OSError as exc:
+                self.log('Penanda sesi belum selesai gagal disimpan: '+str(exc))
+        self.session_state='ABORTED'
+        dpg.stop_dearpygui()
 
     def confirm_close(self,*_):
         if self.pending_target:
