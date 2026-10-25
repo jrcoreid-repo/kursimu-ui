@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.11.1 - reliable emergency shutdown during interrupted BP.
+KursiMu GUI v2.11.2 - parse 4-digit serial LEVEL=0000..0100.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -381,7 +381,7 @@ class BPWorker:
                 await asyncio.sleep(2.0)
 
 
-FOOT_PATTERN = re.compile(r"(?:level|pressure|pijakan|nilai|sensor)\s*[:=]\s*(\d{1,3})(?!\d)", re.I)
+FOOT_PATTERN = re.compile(r"(?:level|pressure|pijakan|nilai|sensor)\s*[:=]\s*(\d{1,4})(?!\d)", re.I)
 
 
 def parse_foot(line: str) -> int | None:
