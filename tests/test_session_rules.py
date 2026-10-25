@@ -22,10 +22,11 @@ class SessionRuleTests(unittest.TestCase):
         self.assertFalse(r.can_start)
         self.assertEqual(r.color, "red")
 
-    def test_requires_both_connections(self):
+    def test_requires_bp_only(self):
         self.assertFalse(decide(bp=False).can_measure_awal)
-        self.assertFalse(decide(foot=False).can_measure_awal)
+        self.assertTrue(decide(foot=False).can_measure_awal)
         self.assertFalse(decide(ready=False).can_measure_awal)
+        self.assertTrue(decide(foot=False,awal=True).can_start)
 
     def test_requires_identity_before_first_measurement(self):
         self.assertFalse(decide(name=False).can_measure_awal)
@@ -51,12 +52,18 @@ class SessionRuleTests(unittest.TestCase):
         self.assertTrue(r.can_pause)
         self.assertFalse(r.can_finish)
         r=decide(state="PAUSED",awal=True,foot=False)
-        self.assertFalse(r.can_resume)
-        self.assertFalse(r.can_measure_akhir)
-        self.assertEqual(r.color,"red")
+        self.assertTrue(r.can_resume)
+        self.assertTrue(r.can_measure_akhir)
+        self.assertEqual(r.color,"yellow")
         r=decide(state="PAUSED",awal=True)
         self.assertTrue(r.can_resume)
         self.assertEqual(r.color,"yellow")
+
+    def test_only_bp_loss_blocks_resume_and_measurement(self):
+        self.assertFalse(decide(state="PAUSED",awal=True,bp=False).can_resume)
+        self.assertFalse(decide(state="PAUSED",awal=True,bp=False).can_measure_akhir)
+        self.assertTrue(decide(state="RUNNING",awal=True,foot=False).can_measure_akhir)
+        self.assertEqual(decide(state="PAUSED",awal=True,bp=False).color,"red")
 
     def test_akhir_only_during_relaxation(self):
         self.assertFalse(decide(state="IDLE",awal=True).can_measure_akhir)
