@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.9.2 - dynamic connect/disconnect COM button.
+KursiMu GUI v2.9.3 - light dropdown theme for serial COM selection.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -521,6 +521,7 @@ class KursiMuApp:
             with dpg.theme_component(dpg.mvAll):
                 for idx, color in (
                     (dpg.mvThemeCol_WindowBg,BG), (dpg.mvThemeCol_ChildBg,WHITE),
+                    (dpg.mvThemeCol_PopupBg,WHITE),
                     (dpg.mvThemeCol_Text,INK), (dpg.mvThemeCol_Border,LINE),
                     (dpg.mvThemeCol_FrameBg,(246,250,247,255)),
                     (dpg.mvThemeCol_FrameBgHovered,PALE),
@@ -529,6 +530,9 @@ class KursiMuApp:
                     (dpg.mvThemeCol_ButtonHovered,DARK_GREEN),
                     (dpg.mvThemeCol_ButtonActive,DARK_GREEN),
                     (dpg.mvThemeCol_Header,PALE),
+                    (dpg.mvThemeCol_HeaderHovered,(208,237,220,255)),
+                    (dpg.mvThemeCol_HeaderActive,(184,224,201,255)),
+                    (dpg.mvThemeCol_NavHighlight,(66,155,106,255)),
                     (dpg.mvThemeCol_CheckMark,GREEN),
                 ):
                     dpg.add_theme_color(idx,color)
@@ -536,8 +540,23 @@ class KursiMuApp:
                 dpg.add_theme_style(dpg.mvStyleVar_FramePadding,8,5)
                 dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing,6,5)
                 dpg.add_theme_style(dpg.mvStyleVar_FrameRounding,7)
+                dpg.add_theme_style(dpg.mvStyleVar_PopupRounding,8)
+                dpg.add_theme_style(dpg.mvStyleVar_PopupBorderSize,1)
                 dpg.add_theme_style(dpg.mvStyleVar_ChildRounding,12)
                 dpg.add_theme_style(dpg.mvStyleVar_WindowBorderSize,0)
+        with dpg.theme(tag='theme_com_dropdown'):
+            with dpg.theme_component(dpg.mvCombo):
+                dpg.add_theme_color(dpg.mvThemeCol_PopupBg,WHITE)
+                dpg.add_theme_color(dpg.mvThemeCol_Text,INK)
+                dpg.add_theme_color(dpg.mvThemeCol_Border,LINE)
+                dpg.add_theme_color(dpg.mvThemeCol_FrameBg,(243,249,246,255))
+                dpg.add_theme_color(dpg.mvThemeCol_FrameBgHovered,(226,244,232,255))
+                dpg.add_theme_color(dpg.mvThemeCol_FrameBgActive,(226,244,232,255))
+                dpg.add_theme_color(dpg.mvThemeCol_Header,PALE)
+                dpg.add_theme_color(dpg.mvThemeCol_HeaderHovered,(208,237,220,255))
+                dpg.add_theme_color(dpg.mvThemeCol_HeaderActive,(184,224,201,255))
+                dpg.add_theme_style(dpg.mvStyleVar_PopupRounding,8)
+                dpg.add_theme_style(dpg.mvStyleVar_PopupBorderSize,1)
         with dpg.theme(tag='theme_header'):
             with dpg.theme_component(dpg.mvChildWindow):
                 dpg.add_theme_color(dpg.mvThemeCol_ChildBg, (249, 253, 250, 255))
@@ -920,6 +939,7 @@ class KursiMuApp:
                     dpg.add_text('COM PIJAKAN',color=MUTED)
                     dpg.add_combo(items=['Pilih COM'],default_value='Pilih COM',
                                   tag='port_combo',width=155)
+                    dpg.bind_item_theme('port_combo','theme_com_dropdown')
                     dpg.add_button(label='REFRESH',tag='btn_refresh',callback=self.refresh_ports,width=150)
                     dpg.bind_item_theme('btn_refresh','theme_neutral')
                     dpg.add_button(label='⊕  SAMBUNG COM',tag='btn_connect',
