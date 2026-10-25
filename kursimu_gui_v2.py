@@ -36,7 +36,7 @@ import ctypes
 import warnings
 from typing import TextIO
 
-from session_rules import evaluate_session
+from session_rules import evaluate_session, requires_exit_confirmation
 
 try:
     import pygame
@@ -1834,7 +1834,10 @@ class KursiMuApp:
             self.handle_result(result)
 
     def request_close(self,*_):
-        if self.session_state in ('RUNNING','PAUSED','SAVE_FAILED'):
+        # IDLE (including after SESI BARU) and FINISHED can close immediately.
+        # An active session or in-flight BP command requires confirmation.
+        if requires_exit_confirmation(self.session_state,
+                                      self.pending_target is not None):
             dpg.show_item('confirm_close')
         else:
             dpg.stop_dearpygui()
