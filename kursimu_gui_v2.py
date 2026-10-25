@@ -1112,6 +1112,7 @@ class KursiMuApp:
         if self.foot_worker.selected_port:
             self.foot_worker.set_port(None)
             self.log('Koneksi serial diminta berhenti')
+            self.update_buttons()
         else:
             port=dpg.get_value('port_combo')
             if port=='Pilih COM' or not port:
@@ -1119,6 +1120,7 @@ class KursiMuApp:
                 return
             self.foot_worker.set_port(port)
             self.log(f'Menghubungkan Arduino pijakan melalui {port}')
+            self.update_buttons()
 
     def update_foot(self,value:int):
         self.last_foot=value
