@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.9.3 - light dropdown theme for serial COM selection.
+KursiMu GUI v2.9.4 - clean lifecycle exit and deprecation warning cleanup.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -33,6 +33,7 @@ import threading
 import time
 import sys
 import ctypes
+import warnings
 from typing import TextIO
 
 from session_rules import evaluate_session
@@ -49,6 +50,15 @@ try:
 except ImportError:
     BleakScanner = None
     BleakClient = None
+
+# Windows WinRT deprecation from Bleak's own internals. Scope the filter to
+# this exact legacy API warning; genuine BLE errors remain fully visible.
+warnings.filterwarnings(
+    "ignore",
+    message=r"GattCharacteristic\.write_value_with_result_and_option_async\(\) is deprecated.*",
+    category=DeprecationWarning,
+    module=r"bleak\.backends\.winrt\.client",
+)
 
 try:
     import serial
@@ -492,11 +502,9 @@ class KursiMuApp:
         if font is None:
             return
         with dpg.font_registry():
-            # DearPyGui only renders glyphs explicitly included in the font atlas.
-            # Register simple transport/music symbols for the action toolbar.
-            with dpg.font(str(font), 16) as base_font:
-                dpg.add_font_chars([0x25B6, 0x23F8, 0x25A0, 0x266B, 0x2295, 0x2297])
-            self.fonts['base'] = base_font
+            # Recent DearPyGui versions build character ranges automatically.
+            # add_font_chars() is deprecated and now a no-op.
+            self.fonts['base'] = dpg.add_font(str(font), 16)
             self.fonts['small'] = dpg.add_font(str(font), 14)
             self.fonts['title'] = dpg.add_font(str(bold if bold.exists() else font), 35)
             self.fonts['hero'] = dpg.add_font(str(bold if bold.exists() else font), 40)
@@ -507,9 +515,7 @@ class KursiMuApp:
             # Keep Latin glyphs as well so full button labels remain readable.
             icon_font = Path('C:/Windows/Fonts/seguisym.ttf')
             button_font = icon_font if icon_font.is_file() else font
-            with dpg.font(str(button_font), 19) as action_font:
-                dpg.add_font_chars([0x25B6, 0x23F8, 0x25A0, 0x266B, 0x2295, 0x2297])
-            self.fonts['action'] = action_font
+            self.fonts['action'] = dpg.add_font(str(button_font), 19)
         dpg.bind_font(self.fonts['base'])
 
     def bind_font(self, tag, name):
@@ -1916,10 +1922,16 @@ class KursiMuApp:
             elif self.foot_file:
                 self.foot_file.close()
             self.stop_music()
+            # Notify background workers before destroying the DearPyGui context.
+            # This prevents avoidable WinRT/serial cleanup noise after GUI exit.
             if self.bp_worker:
                 self.bp_worker.stop.set()
             if self.foot_worker:
                 self.foot_worker.stop.set()
+                self.foot_worker.set_port(None)
+            for worker in (self.foot_worker, self.bp_worker):
+                if worker and worker.thread.is_alive():
+                    worker.thread.join(timeout=2.0)
             dpg.destroy_context()
 
 
