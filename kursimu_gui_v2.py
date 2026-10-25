@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.11.3 - compact centered orange BP progress popup.
+KursiMu GUI v2.11.4 - custom KursiMu Windows icon.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -492,6 +492,7 @@ class KursiMuApp:
         self.demo_session = 100
         self.demo_target = None
         self.fonts = {}
+        self.window_icon_handles = []
         self.closing = False
         self.messages = []
 
@@ -877,6 +878,42 @@ class KursiMuApp:
                                  tag='logo_empty',color=MUTED)
         dpg.bind_item_theme('footer_logos','theme_card')
 
+    def apply_windows_icon(self):
+        """Replace Python's default titlebar/taskbar icon with KursiMu's icon."""
+        if sys.platform != 'win32':
+            return
+        icon_file = ROOT / 'assets' / 'kursimu.ico'
+        if not icon_file.is_file():
+            self.log('Ikon KursiMu tidak ditemukan: '+str(icon_file))
+            return
+        try:
+            shell32 = ctypes.WinDLL('shell32', use_last_error=True)
+            shell32.SetCurrentProcessExplicitAppUserModelID.argtypes=[ctypes.c_wchar_p]
+            shell32.SetCurrentProcessExplicitAppUserModelID.restype=ctypes.c_long
+            shell32.SetCurrentProcessExplicitAppUserModelID('JRCoreLab.KursiMu')
+            user32 = ctypes.WinDLL('user32', use_last_error=True)
+            user32.FindWindowW.argtypes=[ctypes.c_wchar_p,ctypes.c_wchar_p]
+            user32.FindWindowW.restype=ctypes.c_void_p
+            user32.LoadImageW.argtypes=[ctypes.c_void_p,ctypes.c_wchar_p,
+                                       ctypes.c_uint,ctypes.c_int,ctypes.c_int,
+                                       ctypes.c_uint]
+            user32.LoadImageW.restype=ctypes.c_void_p
+            user32.SendMessageW.argtypes=[ctypes.c_void_p,ctypes.c_uint,
+                                        ctypes.c_size_t,ctypes.c_void_p]
+            user32.SendMessageW.restype=ctypes.c_ssize_t
+            hwnd=user32.FindWindowW(None,'KursiMu - Smart Relaxation Monitoring')
+            if not hwnd:
+                self.log('Ikon: jendela aplikasi tidak ditemukan')
+                return
+            for size,kind in ((16,0),(48,1)):
+                # IMAGE_ICON=1; LR_LOADFROMFILE=0x10; WM_SETICON=0x80
+                handle=user32.LoadImageW(None,str(icon_file),1,size,size,0x10)
+                if handle:
+                    user32.SendMessageW(hwnd,0x80,kind,handle)
+                    self.window_icon_handles.append(handle)
+        except (OSError,AttributeError,ValueError) as exc:
+            self.log('Gagal memasang ikon Windows: '+str(exc))
+
     def create_ui(self):
         dpg.create_context()
         self.setup_fonts()
@@ -1072,6 +1109,7 @@ class KursiMuApp:
         dpg.set_primary_window('main',True)
         dpg.setup_dearpygui()
         dpg.show_viewport()
+        self.apply_windows_icon()
         self.refresh_ports()
         self.refresh_music()
         self.layout(force=True)
