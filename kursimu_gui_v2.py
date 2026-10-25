@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.9.1 - include color-coded session guidance within header.
+KursiMu GUI v2.9.2 - dynamic connect/disconnect COM button.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -495,7 +495,7 @@ class KursiMuApp:
             # DearPyGui only renders glyphs explicitly included in the font atlas.
             # Register simple transport/music symbols for the action toolbar.
             with dpg.font(str(font), 16) as base_font:
-                dpg.add_font_chars([0x25B6, 0x23F8, 0x25A0, 0x266B])
+                dpg.add_font_chars([0x25B6, 0x23F8, 0x25A0, 0x266B, 0x2295, 0x2297])
             self.fonts['base'] = base_font
             self.fonts['small'] = dpg.add_font(str(font), 14)
             self.fonts['title'] = dpg.add_font(str(bold if bold.exists() else font), 35)
@@ -508,7 +508,7 @@ class KursiMuApp:
             icon_font = Path('C:/Windows/Fonts/seguisym.ttf')
             button_font = icon_font if icon_font.is_file() else font
             with dpg.font(str(button_font), 19) as action_font:
-                dpg.add_font_chars([0x25B6, 0x23F8, 0x25A0, 0x266B])
+                dpg.add_font_chars([0x25B6, 0x23F8, 0x25A0, 0x266B, 0x2295, 0x2297])
             self.fonts['action'] = action_font
         dpg.bind_font(self.fonts['base'])
 
@@ -607,6 +607,14 @@ class KursiMuApp:
                 dpg.add_theme_color(dpg.mvThemeCol_Button,TEAL)
                 dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered,(16,91,87,255))
                 dpg.add_theme_color(dpg.mvThemeCol_Text,WHITE)
+        with dpg.theme(tag='theme_disconnect'):
+            with dpg.theme_component(dpg.mvButton):
+                dpg.add_theme_color(dpg.mvThemeCol_Button,(188,76,78,255))
+                dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered,(155,56,59,255))
+                dpg.add_theme_color(dpg.mvThemeCol_Text,WHITE)
+            with dpg.theme_component(dpg.mvButton, enabled_state=False):
+                dpg.add_theme_color(dpg.mvThemeCol_Button,(205,145,146,255))
+                dpg.add_theme_color(dpg.mvThemeCol_TextDisabled,WHITE)
         with dpg.theme(tag='theme_neutral'):
             with dpg.theme_component(dpg.mvButton):
                 dpg.add_theme_color(dpg.mvThemeCol_Button,(225,236,229,255))
@@ -914,8 +922,10 @@ class KursiMuApp:
                                   tag='port_combo',width=155)
                     dpg.add_button(label='REFRESH',tag='btn_refresh',callback=self.refresh_ports,width=150)
                     dpg.bind_item_theme('btn_refresh','theme_neutral')
-                    dpg.add_button(label='SAMBUNG / PUTUS',tag='btn_connect',callback=self.toggle_serial,width=185)
+                    dpg.add_button(label='⊕  SAMBUNG COM',tag='btn_connect',
+                                   callback=self.toggle_serial,width=185)
                     dpg.bind_item_theme('btn_connect','theme_connect')
+                    self.bind_font('btn_connect','action')
                     dpg.add_spacer(width=20,tag='connection_spacer')
                     dpg.add_text('LAGU:',color=MUTED)
                     dpg.add_text(self.music_path.name if self.music_path else 'MP3 belum ditemukan - pilih musik',
@@ -1549,6 +1559,20 @@ class KursiMuApp:
         can_change_port=self.session_state in ('IDLE','PAUSED') and self.pending_target is None
         for tag in ('port_combo','btn_connect','btn_refresh'):
             dpg.configure_item(tag,enabled=can_change_port)
+        # Show the actual requested and connected Arduino COM state.
+        connecting=bool(self.foot_worker and self.foot_worker.selected_port)
+        if self.demo:
+            com_label='⊕  SIMULASI COM'
+        elif self.serial_connected:
+            com_label='⊗  PUTUS COM'
+        elif connecting:
+            com_label='⊗  BATAL COM'
+        else:
+            com_label='⊕  SAMBUNG COM'
+        dpg.configure_item('btn_connect',label=com_label,
+                           enabled=can_change_port and not self.demo)
+        dpg.bind_item_theme('btn_connect',
+                            'theme_disconnect' if connecting else 'theme_connect')
         color={'red':RED,'yellow':ORANGE,'green':GREEN}[d.color]
         dpg.set_value('session_state',d.phase)
         dpg.configure_item('session_state',color=color)
