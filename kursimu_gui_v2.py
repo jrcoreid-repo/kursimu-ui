@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.10 - BP-only required, foot COM optional with start confirmation.
+KursiMu GUI v2.10.1 - fix emergency exit modal stacking.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -1029,7 +1029,7 @@ class KursiMuApp:
             with dpg.group(horizontal=True):
                 dpg.add_button(label='SIMPAN & TUTUP',width=205,callback=self.confirm_close)
                 dpg.add_button(label='KELUAR DARURAT',width=205,
-                               callback=lambda *args:dpg.show_item('confirm_emergency'))
+                               callback=self.show_emergency_confirmation)
                 dpg.add_button(label='BATAL',width=120,
                                callback=lambda *args:dpg.hide_item('confirm_close'))
         with dpg.window(tag='confirm_emergency',label='Keluar Darurat',
@@ -1041,7 +1041,7 @@ class KursiMuApp:
                 dpg.add_button(label='KELUAR TANPA RINGKASAN',width=250,
                                callback=self.emergency_close)
                 dpg.add_button(label='BATAL',width=140,
-                               callback=lambda *args:dpg.hide_item('confirm_emergency'))
+                               callback=self.cancel_emergency_confirmation)
         dpg.set_primary_window('main',True)
         dpg.setup_dearpygui()
         dpg.show_viewport()
@@ -1868,6 +1868,16 @@ class KursiMuApp:
             dpg.show_item('confirm_close')
         else:
             dpg.stop_dearpygui()
+
+    def show_emergency_confirmation(self,*_):
+        # DearPyGui only allows interaction with the active modal.
+        # Hide the first modal before opening the emergency dialog.
+        dpg.hide_item('confirm_close')
+        dpg.show_item('confirm_emergency')
+
+    def cancel_emergency_confirmation(self,*_):
+        dpg.hide_item('confirm_emergency')
+        dpg.show_item('confirm_close')
 
     def emergency_close(self,*_):
         # Explicit recovery path if a device fails mid-session.
