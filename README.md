@@ -20,7 +20,7 @@ Semua tombol dan callback mematuhi urutan yang sama:
 2. Isi **Nama** dan **ID Pengguna**. Selama kosong, tombol UKUR AWAL tidak aktif.
 3. **UKUR AWAL:** baru bisa dijalankan dengan identitas lengkap dan kedua perangkat terkoneksi. Nama/ID kemudian terkunci agar tidak tertukar.
 4. **MULAI:** baru tersedia setelah BP AWAL tersimpan dan musik tersedia. Musik diputar serta CSV pijakan dimulai.
-5. **PAUSE / LANJUTKAN:** menghentikan sementara/melanjutkan musik, timer, dan pencatatan. Jika BP atau Pijakan terputus saat sesi berjalan, aplikasi **pause otomatis**; LANJUTKAN memerlukan koneksi kembali.
+5. **PAUSE / LANJUTKAN:** menghentikan sementara/melanjutkan musik, timer, dan pencatatan. Jika BP atau Pijakan terputus saat sesi berjalan, aplikasi **pause otomatis**; LANJUTKAN memerlukan koneksi kembali. Jika port COM Arduino berubah setelah reconnect, port dapat dipilih ulang saat **PAUSED**.
 6. **UKUR AKHIR:** baru tersedia saat relaksasi RUNNING/PAUSED, koneksi BP/Pijakan siap, dan AWAL sudah tercatat.
 7. **SELESAI:** baru tersedia setelah BP AKHIR diterima; CSV pijakan ditutup dan CSV ringkasan lengkap ditulis. Jika simpan ringkasan gagal, tombol ini bisa dicoba kembali.
 8. **SESI BARU:** baru tersedia setelah penyimpanan sukses, lalu identitas pengguna dan panel BP dibersihkan.
