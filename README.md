@@ -2,7 +2,7 @@
 
 Aplikasi desktop **DearPyGui** untuk prototipe KursiMu (Windows 11): membandingkan tekanan darah **sebelum** dan **sesudah** relaksasi musik sambil mencatat sensor pijakan Arduino.
 
-## V2.6 — UI dan musik
+## GUI KursiMu — Tampilan dan musik
 - Tema putih–hijau, **fullscreen dan always-on-top**, tombol tutup di header.
 - Toolbar lebar penuh: **Mulai** hijau, **Pause/Lanjutkan** amber, **Selesai & Simpan** merah, **Pilih Musik** biru.
 - Panel **Pijakan Sensor**: pembacaan level, grafik tren real-time, rerata dan jumlah sampel.
@@ -11,6 +11,27 @@ Aplikasi desktop **DearPyGui** untuk prototipe KursiMu (Windows 11): membandingk
 - BLE ESP32-C3 V13.2: UUID tetap, CRC16, auto-reconnect, ACK_RESULT + penyimpanan hasil sebelum ACK. Tidak otomatis mengirim START saat reconnect.
 - Sesi: sebelum relaksasi ukur AWAL; **Mulai** menyalakan satu lagu relaksasi dan mencatat CSV pijakan; Pause/Lanjutkan menghentikan sementara; ukur AKHIR; Selesai menyimpan ringkasan CSV.
 - Area logo horizontal bawah di `logos/` (gambar opsional; dapat ditambahkan secara lokal).
+
+## V2.8 — Alur sesi ketat (safety rule)
+
+Semua tombol dan callback mematuhi urutan yang sama:
+
+1. **IDLE:** hubungkan BP KursiMu (BLE) **dan** Pijakan Sensor (Arduino serial). Keduanya wajib terkoneksi.
+2. Isi **Nama** dan **ID Pengguna**. Selama kosong, tombol UKUR AWAL tidak aktif.
+3. **UKUR AWAL:** baru bisa dijalankan dengan identitas lengkap dan kedua perangkat terkoneksi. Nama/ID kemudian terkunci agar tidak tertukar.
+4. **MULAI:** baru tersedia setelah BP AWAL tersimpan dan musik tersedia. Musik diputar serta CSV pijakan dimulai.
+5. **PAUSE / LANJUTKAN:** menghentikan sementara/melanjutkan musik, timer, dan pencatatan. Jika BP atau Pijakan terputus saat sesi berjalan, aplikasi **pause otomatis**; LANJUTKAN memerlukan koneksi kembali.
+6. **UKUR AKHIR:** baru tersedia saat relaksasi RUNNING/PAUSED, koneksi BP/Pijakan siap, dan AWAL sudah tercatat.
+7. **SELESAI:** baru tersedia setelah BP AKHIR diterima; CSV pijakan ditutup dan CSV ringkasan lengkap ditulis. Jika simpan ringkasan gagal, tombol ini bisa dicoba kembali.
+8. **SESI BARU:** baru tersedia setelah penyimpanan sukses, lalu identitas pengguna dan panel BP dibersihkan.
+
+**PILIH MUSIK** hanya aktif pada kondisi IDLE, tidak selama sesi atau saat perintah pengukuran BP sedang berlangsung.
+
+**Warna status:** merah = belum siap/terputus/gagal simpan; kuning = menunggu tahap berikutnya/PAUSE/BP sedang mengukur; hijau = siap relaksasi, sesi aktif, siap disimpan, atau selesai.
+
+**Keluar darurat:** karena aplikasi fullscreen, saat sesi aktif ada pilihan eksplisit **KELUAR DARURAT**. Ini mempertahankan data CSV pijakan yang sudah direkam dan menulis penanda `*_BELUM_SELESAI.json`, tetapi **tidak** membuat ringkasan penelitian seolah-olah BP AWAL/AKHIR lengkap.
+
+Pemeriksaan otomatis: `python -m unittest discover -s tests -p "test_session_rules.py" -v` (tanpa hardware) dan CI Python syntax pada setiap push.
 
 ## Instalasi Windows 11
 ```powershell
