@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.11 - live BP measurement progress dialog.
+KursiMu GUI v2.11.1 - reliable emergency shutdown during interrupted BP.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -1034,26 +1034,32 @@ class KursiMuApp:
             dpg.add_text('Jangan melepas manset selama pengukuran.',color=ORANGE)
         dpg.bind_item_theme('bp_progress','theme_music_dialog')
         with dpg.window(tag='confirm_close',label='Konfirmasi Keluar',modal=True,
-                        show=False,no_resize=True,width=705,height=185):
-            dpg.add_text('Sesi masih berlangsung. Simpan hanya jika BP AWAL dan AKHIR lengkap.')
-            dpg.add_text('Jika perangkat bermasalah, gunakan KELUAR DARURAT (tanpa ringkasan).',color=ORANGE)
-            dpg.add_spacer(height=14)
-            with dpg.group(horizontal=True):
-                dpg.add_button(label='SIMPAN & TUTUP',width=205,callback=self.confirm_close)
-                dpg.add_button(label='KELUAR DARURAT',width=205,
-                               callback=self.show_emergency_confirmation)
-                dpg.add_button(label='BATAL',width=120,
-                               callback=lambda *args:dpg.hide_item('confirm_close'))
-        with dpg.window(tag='confirm_emergency',label='Keluar Darurat',
-                        modal=True,show=False,no_resize=True,width=660,height=170):
-            dpg.add_text('KELUAR DARURAT: CSV pijakan yang sudah terekam akan dipertahankan.',color=RED)
-            dpg.add_text('Tidak dibuat ringkasan lengkap. BP AWAL/AKHIR tidak dipalsukan.',color=MUTED)
-            dpg.add_spacer(height=14)
-            with dpg.group(horizontal=True):
-                dpg.add_button(label='KELUAR TANPA RINGKASAN',width=250,
-                               callback=self.emergency_close)
-                dpg.add_button(label='BATAL',width=140,
-                               callback=self.cancel_emergency_confirmation)
+                        show=False,no_resize=True,width=705,height=200):
+            with dpg.group(tag='close_normal_group'):
+                dpg.add_text('Sesi masih berlangsung. Simpan hanya jika BP AWAL dan AKHIR lengkap.')
+                dpg.add_text('Jika perangkat bermasalah, gunakan KELUAR DARURAT (tanpa ringkasan).',
+                             color=ORANGE)
+                dpg.add_spacer(height=14)
+                with dpg.group(horizontal=True):
+                    dpg.add_button(label='SIMPAN & TUTUP',width=205,
+                                   callback=self.confirm_close)
+                    dpg.add_button(label='KELUAR DARURAT',width=205,
+                                   callback=self.show_emergency_confirmation)
+                    dpg.add_button(label='BATAL',width=120,
+                                   callback=lambda *args:dpg.hide_item('confirm_close'))
+            with dpg.group(tag='close_emergency_group',show=False):
+                dpg.add_text('KELUAR DARURAT: data pijakan yang sudah terekam dipertahankan.',
+                             color=RED)
+                dpg.add_text('Pengukuran BP boleh belum selesai; tidak akan dipaksa menunggu.',
+                             color=MUTED)
+                dpg.add_text('Sesi ditandai BELUM SELESAI, tanpa ringkasan palsu.',color=ORANGE)
+                dpg.add_spacer(height=9)
+                with dpg.group(horizontal=True):
+                    dpg.add_button(label='YA, KELUAR DARURAT',width=240,
+                                   callback=self.emergency_close)
+                    dpg.add_button(label='KEMBALI',width=140,
+                                   callback=self.cancel_emergency_confirmation)
+        dpg.bind_item_theme('confirm_close','theme_music_dialog')
         dpg.set_primary_window('main',True)
         dpg.setup_dearpygui()
         dpg.show_viewport()
@@ -1917,31 +1923,44 @@ class KursiMuApp:
         # An active session or in-flight BP command requires confirmation.
         if requires_exit_confirmation(self.session_state,
                                       self.pending_target is not None):
+            self.dismiss_bp_progress()
+            dpg.show_item('close_normal_group')
+            dpg.hide_item('close_emergency_group')
             dpg.show_item('confirm_close')
         else:
             dpg.stop_dearpygui()
 
     def show_emergency_confirmation(self,*_):
-        # DearPyGui only allows interaction with the active modal.
-        # Hide the first modal before opening the emergency dialog.
-        dpg.hide_item('confirm_close')
-        dpg.show_item('confirm_emergency')
+        # Keep ONE modal; nested modal stacks can swallow input on Win11.
+        dpg.hide_item('close_normal_group')
+        dpg.show_item('close_emergency_group')
 
     def cancel_emergency_confirmation(self,*_):
-        dpg.hide_item('confirm_emergency')
-        dpg.show_item('confirm_close')
+        dpg.hide_item('close_emergency_group')
+        dpg.show_item('close_normal_group')
 
     def emergency_close(self,*_):
         # Explicit recovery path if a device fails mid-session.
         # Preserve raw foot CSV, but NEVER invent a completed BP summary.
+        # Emergency exit must not depend on hardware response, BP ACK,
+        # unfinished readings or successful disk writes.
+        self.pending_target=None
+        self.demo_due=None
+        self.dismiss_bp_progress()
         if self.foot_file:
+            stream=self.foot_file
+            self.foot_file=None
+            self.foot_writer=None
             try:
-                self.foot_file.flush()
-                os.fsync(self.foot_file.fileno())
+                stream.flush()
+                os.fsync(stream.fileno())
+            except OSError as exc:
+                self.log('Peringatan flush darurat: '+str(exc))
             finally:
-                self.foot_file.close()
-                self.foot_file=None
-                self.foot_writer=None
+                try:
+                    stream.close()
+                except OSError as exc:
+                    self.log('Peringatan close darurat: '+str(exc))
         self.stop_music()
         if self.session_uid and self.session_files:
             marker=self.session_files['pijakan'].with_name(
