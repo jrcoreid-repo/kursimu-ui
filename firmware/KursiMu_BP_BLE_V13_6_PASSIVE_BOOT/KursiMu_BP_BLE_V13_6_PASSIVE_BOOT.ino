@@ -1299,11 +1299,7 @@ void processBPLine(String line) {
 
   if (line == "addQas") {
     if (!sessionOpen) {
-      if (measureState == M_STARTING ||
-          (bootPulseDone &&
-           (uint32_t)(
-             millis() - bootPulseAt
-           ) < START_TIMEOUT_MS)) {
+      if (measureState == M_STARTING) {
 
         beginMeasurement("addQas");
       }
