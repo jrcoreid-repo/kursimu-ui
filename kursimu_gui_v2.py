@@ -87,6 +87,28 @@ DEFAULT_MUSIC = MUSIC_DIR / "relaksasi.mp3"
 MUSIC_EXTENSIONS = {".mp3", ".wav", ".ogg"}
 USER_SETTINGS_FILE = DATA_DIR / "ui_settings.json"
 
+def initialize_bundled_media():
+    """Copy packaged logos and music once into the writable user profile."""
+    if not FROZEN:
+        return
+    bundle = Path(getattr(sys, "_MEIPASS", str(ROOT)))
+    for folder_name, destination in (("logos", LOGO_DIR), ("music", MUSIC_DIR)):
+        origin = bundle / folder_name
+        if not origin.is_dir():
+            continue
+        for item in origin.iterdir():
+            if not item.is_file() or item.name.lower() == "readme.md":
+                continue
+            target = destination / item.name
+            if not target.exists():
+                try:
+                    import shutil
+                    shutil.copy2(item, target)
+                except OSError:
+                    pass
+
+initialize_bundled_media()
+
 
 def discover_music() -> Path | None:
     """Discover any playable-extension file under music/, regardless of filename."""
