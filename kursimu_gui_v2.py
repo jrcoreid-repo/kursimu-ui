@@ -1067,8 +1067,8 @@ class KursiMuApp:
             dpg.set_value('port_combo','Pilih COM')
 
     def toggle_serial(self,*_):
-        if self.session_state!='IDLE' or self.pending_target is not None:
-            self.log('Port Pijakan hanya dapat diubah ketika IDLE dan BP tidak mengukur')
+        if self.session_state not in ('IDLE','PAUSED') or self.pending_target is not None:
+            self.log('Port Pijakan hanya dapat diubah ketika IDLE atau sesi DIJEDA')
             return
         if self.demo:
             self.log('Mode simulasi: serial Arduino tidak digunakan')
@@ -1523,7 +1523,7 @@ class KursiMuApp:
         dpg.configure_item('btn_music',enabled=d.can_change_music)
         dpg.configure_item('patient_name',enabled=d.can_edit_identity)
         dpg.configure_item('patient_id',enabled=d.can_edit_identity)
-        can_change_port=self.session_state=='IDLE' and self.pending_target is None
+        can_change_port=self.session_state in ('IDLE','PAUSED') and self.pending_target is None
         for tag in ('port_combo','btn_connect','btn_refresh'):
             dpg.configure_item(tag,enabled=can_change_port)
         color={'red':RED,'yellow':ORANGE,'green':GREEN}[d.color]
