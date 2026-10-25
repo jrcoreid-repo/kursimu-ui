@@ -23,6 +23,14 @@ class SessionDecision:
     color: str
 
 
+def requires_exit_confirmation(state: str, pending_measurement: bool = False) -> bool:
+    """Ask before leaving an active/incomplete session or in-flight BP reading.
+
+    After SESI BARU resets the phase to IDLE, quitting is immediate.
+    """
+    return pending_measurement or state in ("RUNNING", "PAUSED", "SAVE_FAILED")
+
+
 def evaluate_session(
     *,
     state: str,
