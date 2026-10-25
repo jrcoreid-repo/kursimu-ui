@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.10.1 - fix emergency exit modal stacking.
+KursiMu GUI v2.11 - live BP measurement progress dialog.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -454,6 +454,8 @@ class KursiMuApp:
         self.serial_connected = demo
         self.bp_status: dict | None = None
         self.pending_target: dict | None = None
+        self.bp_popup_hide_at = None
+        self.bp_popup_stage = None
         self.unassigned: dict | None = None
         self.readings = {"awal": None, "akhir": None}
         self.last_foot = 0
@@ -1021,6 +1023,16 @@ class KursiMuApp:
                 dpg.add_button(label='BATAL / SAMBUNG COM',width=240,height=40,
                                callback=lambda *args:dpg.hide_item('confirm_missing_foot'))
         dpg.bind_item_theme('confirm_missing_foot','theme_music_dialog')
+        with dpg.window(tag='bp_progress',label='Proses Pengukuran BP',
+                        show=False,modal=False,no_resize=True,no_move=False,
+                        width=535,height=170,no_close=True):
+            dpg.add_text('PERSIAPAN',tag='bp_progress_title',color=DARK_GREEN)
+            dpg.add_spacer(height=8)
+            dpg.add_text('Menunggu respons perangkat BP...',tag='bp_progress_detail',
+                         color=MUTED,wrap=500)
+            dpg.add_spacer(height=12)
+            dpg.add_text('Jangan melepas manset selama pengukuran.',color=ORANGE)
+        dpg.bind_item_theme('bp_progress','theme_music_dialog')
         with dpg.window(tag='confirm_close',label='Konfirmasi Keluar',modal=True,
                         show=False,no_resize=True,width=705,height=185):
             dpg.add_text('Sesi masih berlangsung. Simpan hanya jika BP AWAL dan AKHIR lengkap.')
@@ -1633,6 +1645,24 @@ class KursiMuApp:
         dpg.configure_item('activity_line',color=color)
 
 
+    def show_bp_progress(self, stage, detail='', auto_close_ms=None):
+        # Informational non-modal window: never blocks BLE recovery or exit controls.
+        self.bp_popup_stage=stage
+        dpg.set_value('bp_progress_title',stage)
+        dpg.set_value('bp_progress_detail',detail)
+        dpg.show_item('bp_progress')
+        self.bp_popup_hide_at=(time.monotonic()+auto_close_ms/1000.0
+                               if auto_close_ms is not None else None)
+
+    def dismiss_bp_progress(self):
+        dpg.hide_item('bp_progress')
+        self.bp_popup_hide_at=None
+        self.bp_popup_stage=None
+
+    def update_bp_progress(self):
+        if self.bp_popup_hide_at is not None and time.monotonic()>=self.bp_popup_hide_at:
+            self.dismiss_bp_progress()
+
     def start_bp(self,target):
         d=self.workflow()
         allowed=d.can_measure_awal if target=='awal' else d.can_measure_akhir
@@ -1648,7 +1678,8 @@ class KursiMuApp:
         if self.demo:
             self.pending_target={'target':target,'baseline':self.demo_session,'accepted':True}
             self.demo_target=target
-            self.demo_due=time.monotonic()+2.2
+            self.demo_due=time.monotonic()+5.2
+            self.show_bp_progress('PERSIAPAN','Menyiapkan pengukuran BP '+target.upper()+'...')
             self.update_buttons()
             self.log('[DEMO] Mengukur BP '+target.upper())
             return
@@ -1656,6 +1687,7 @@ class KursiMuApp:
                              'baseline':self.bp_status['total'],
                              'accepted':False}
         # Once per click. No automatic retry or START on BLE reconnect.
+        self.show_bp_progress('PERSIAPAN','Mengirim perintah ukur BP '+target.upper()+'...')
         self.ble_requests.put({'op':OP_START,'target':target})
         self.update_buttons()
         self.log('START BP '+target.upper()+' sekali, menunggu pompa')
@@ -1706,6 +1738,7 @@ class KursiMuApp:
             target=self.pending_target['target']
             self.set_panel(target,result)
             self.pending_target=None
+            self.show_bp_progress('PENGUKURAN SELESAI','Hasil BP '+target.upper()+' berhasil diterima.',auto_close_ms=1300)
             assigned=True
         if not assigned:
             self.unassigned=result
@@ -1794,6 +1827,8 @@ class KursiMuApp:
                 self.bp_status=None
                 dpg.set_value('bp_state','TIDAK TERHUBUNG')
                 self.pause_on_disconnect('BP KursiMu')
+                if self.pending_target:
+                    self.show_bp_progress('KONEKSI TERPUTUS','Menunggu koneksi BP kembali.',auto_close_ms=4000)
             self.update_buttons()
         elif typ=='serial':
             self.serial_connected=item['connected']
@@ -1813,7 +1848,15 @@ class KursiMuApp:
             state=STATE_NAMES[code] if code<len(STATE_NAMES) else str(code)
             dpg.set_value('bp_state',state)
             dpg.configure_item('bp_state',color=RED if code==6 else GREEN if code in (0,5) else ORANGE)
+            if self.pending_target and code in (1,2,3,4):
+                if code==1:
+                    self.show_bp_progress('PERSIAPAN','Perintah diterima. Menunggu pompa BP.')
+                elif code==2:
+                    self.show_bp_progress('POMPA DIMULAI','Pengukuran tekanan darah sedang berlangsung.')
+                else:
+                    self.show_bp_progress('ANALISA TEKANAN DARAH','Menunggu hasil pembacaan dari alat BP.')
             if self.pending_target and self.pending_target['accepted'] and code==6:
+                self.show_bp_progress('PENGUKURAN GAGAL','Alat melaporkan error atau timeout.',auto_close_ms=4500)
                 self.log('BP gagal atau timeout. Hasil tidak dipasangkan')
                 self.pending_target=None
                 self.unlock_failed_awal()
@@ -1827,13 +1870,16 @@ class KursiMuApp:
             if item.get('op')==OP_START and self.pending_target and item.get('target')==self.pending_target['target']:
                 if code==0:
                     self.pending_target['accepted']=True
+                    self.show_bp_progress('PERSIAPAN','Perintah UKUR diterima. Menunggu pompa BP.')
                     self.log(f'START diterima untuk {item["target"].upper()}')
                 else:
+                    self.show_bp_progress('PERINTAH DITOLAK',f'BP menolak perintah: {desc}',auto_close_ms=4000)
                     self.log(f'START ditolak: ACK_{desc}')
                     self.pending_target=None
                     self.unlock_failed_awal()
             self.update_buttons()
         elif typ=='command_error':
+            self.show_bp_progress('PERINTAH BP BERMASALAH',str(item['message']),auto_close_ms=4500)
             self.log(f'Perintah BP gagal: {item["message"]}')
             if item.get('op')==OP_START:
                 # Result may still arrive; never repeat a potentially issued START.
@@ -1848,6 +1894,12 @@ class KursiMuApp:
         if now-self.last_demo_tick>.30:
             self.last_demo_tick=now
             self.update_foot(random.randint(25,85))
+        if self.demo_due is not None and self.pending_target:
+            remaining=self.demo_due-now
+            if remaining<=1.7 and self.bp_popup_stage!='ANALISA TEKANAN DARAH':
+                self.show_bp_progress('ANALISA TEKANAN DARAH','[DEMO] Mengolah pembacaan tekanan darah.')
+            elif 1.7<remaining<=3.6 and self.bp_popup_stage!='POMPA DIMULAI':
+                self.show_bp_progress('POMPA DIMULAI','[DEMO] Pengukuran tekanan darah berlangsung.')
         if self.demo_due is not None and now>=self.demo_due:
             self.demo_due=None
             self.demo_session+=1
@@ -1946,6 +1998,7 @@ class KursiMuApp:
                     dpg.set_value('elapsed',self.elapsed_fmt(self.elapsed_seconds()))
                     last_elapsed=now
                 self.layout()
+                self.update_bp_progress()
                 dpg.render_dearpygui_frame()
         finally:
             if self.session_state in ('RUNNING','PAUSED'):
