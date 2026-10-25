@@ -14,6 +14,6 @@ jobs:
         with:
           python-version: '3.12'
       - name: Check Python syntax
-        run: python -m py_compile kursimu_gui_v2.py session_rules.py tests/test_session_rules.py
-      - name: Test strict session workflow
-        run: python -m unittest discover -s tests -p 'test_session_rules.py' -v
+        run: python -m py_compile kursimu_gui_v2.py session_rules.py tests/test_session_rules.py tests/test_foot_serial.py
+      - name: Test session workflow and HX711 serial decoding
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
