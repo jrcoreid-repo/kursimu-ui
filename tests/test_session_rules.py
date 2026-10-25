@@ -1,7 +1,7 @@
 """State-machine safety tests for KursiMu relaxation GUI."""
 import unittest
 
-from session_rules import evaluate_session
+from session_rules import evaluate_session, requires_exit_confirmation
 
 
 def decide(state="IDLE", bp=True, foot=True, ready=True,
@@ -80,6 +80,17 @@ class SessionRuleTests(unittest.TestCase):
             self.assertFalse(decide(state=state).can_change_music)
         self.assertFalse(decide(measuring=True).can_change_music)
         self.assertTrue(decide().can_change_music)
+
+    def test_exit_after_new_session_idle(self):
+        # Completed -> New Session -> IDLE: close should be immediate.
+        self.assertFalse(requires_exit_confirmation("FINISHED"))
+        self.assertFalse(requires_exit_confirmation("IDLE"))
+        self.assertTrue(requires_exit_confirmation("IDLE", pending_measurement=True))
+
+    def test_exit_while_active_requires_confirmation(self):
+        for state in ("RUNNING","PAUSED","SAVE_FAILED"):
+            self.assertTrue(requires_exit_confirmation(state))
+        self.assertFalse(requires_exit_confirmation("ABORTED"))
 
     def test_retry_failed_summary(self):
         r=decide(state="SAVE_FAILED",awal=True,akhir=True)
