@@ -216,6 +216,11 @@ uint32_t lastResultSentAt = 0;
 // ================= UART / USB ========================
 
 String uartLine = "";
+
+// Detect the full shutdown token across un-terminated v_b heartbeats.
+// A byte-wise matcher avoids dependence on CR/LF and buffer overflow.
+const char POWER_DOWN_TOKEN[] = "MSG_POWER_DOWN";
+uint8_t powerDownMatch = 0;
 String usbLine = "";
 
 bool rawEcho = false;
@@ -1255,8 +1260,8 @@ void processBPLine(String line) {
   }
 
   // ------------ POWER DOWN ----------------
-  // BP emits v_b heartbeats without newline. A UART line may be
-  // v_bv_bMSG_POWER_DOWN rather than starting with MSG_POWER_DOWN.
+  // A stream matcher also recognizes shutdown without a newline.
+  // Keep the substring fallback for complete UART lines.
 
   if (line.indexOf("MSG_POWER_DOWN") >= 0) {
     powerState = P_OFF;
@@ -1300,11 +1305,16 @@ void processBPLine(String line) {
     return;
   }
 
+  // Pre-measurement indication only; not authoritative until start test.
+  if (line.indexOf("index=1,done=1") >= 0) {
+    Serial.println("[BP] PREPARE INDICATOR index=1,done=1");
+  }
+
   // ------------ PUMP START ----------------
 
   if (isSoc3(line) ||
-      line.startsWith("start test") ||
-      line.startsWith("startBPTest")) {
+      line.indexOf("start test") >= 0 ||
+      line.indexOf("startBPTest") >= 0) {
 
     if (!sessionOpen) {
       beginMeasurement("soc=3/start test");
@@ -1428,6 +1438,21 @@ void readBPUART() {
 
     if (rawEcho) {
       Serial.write(b);
+    }
+
+    // The BP prints "v_b" without newlines. Detect shutdown as a
+    // byte stream: v_bv_bMSG_POWER_DOWN must work even if the line
+    // buffer never terminates or previously overflowed.
+    if (b == (uint8_t)POWER_DOWN_TOKEN[powerDownMatch]) {
+      powerDownMatch++;
+      if (POWER_DOWN_TOKEN[powerDownMatch] == '\0') {
+        powerDownMatch = 0;
+        uartLine = "";
+        processBPLine(String(POWER_DOWN_TOKEN));
+        continue;  // CR/LF, if any, will be consumed normally.
+      }
+    } else {
+      powerDownMatch = (b == (uint8_t)POWER_DOWN_TOKEN[0]) ? 1 : 0;
     }
 
     if (b == '\r' || b == '\n') {
