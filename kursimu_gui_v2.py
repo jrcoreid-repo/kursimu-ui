@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.9.5 - improved spacing between session status and new-session action.
+KursiMu GUI v2.10 - BP-only required, foot COM optional with start confirmation.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -1008,6 +1008,19 @@ class KursiMuApp:
             dpg.add_text('Belum ada file dipilih.',
                          tag='music_picker_status', color=MUTED, wrap=735)
         dpg.bind_item_theme('music_dialog','theme_music_dialog')
+        with dpg.window(tag='confirm_missing_foot',label='Pijakan Tidak Terhubung',
+                        modal=True,show=False,no_resize=True,width=670,height=190):
+            dpg.add_text('Sensor pijakan (Serial COM) belum terhubung.',color=ORANGE)
+            dpg.add_text('Pengukuran BP dan relaksasi tetap dapat berjalan tanpa data pijakan.')
+            dpg.add_text('File CSV pijakan akan kosong selama tidak ada sampel yang diterima.',
+                         color=MUTED)
+            dpg.add_spacer(height=12)
+            with dpg.group(horizontal=True):
+                dpg.add_button(label='LANJUTKAN TANPA PIJAKAN',width=285,height=40,
+                               callback=self.start_relaxation_confirmed)
+                dpg.add_button(label='BATAL / SAMBUNG COM',width=240,height=40,
+                               callback=lambda *args:dpg.hide_item('confirm_missing_foot'))
+        dpg.bind_item_theme('confirm_missing_foot','theme_music_dialog')
         with dpg.window(tag='confirm_close',label='Konfirmasi Keluar',modal=True,
                         show=False,no_resize=True,width=705,height=185):
             dpg.add_text('Sesi masih berlangsung. Simpan hanya jika BP AWAL dan AKHIR lengkap.')
@@ -1389,6 +1402,17 @@ class KursiMuApp:
         if not self.workflow().can_start:
             self.log('MULAI ditolak: '+self.workflow().guidance)
             return
+        if not self.demo and not self.serial_connected:
+            dpg.show_item('confirm_missing_foot')
+            self.log('Pijakan tidak terhubung; menunggu konfirmasi untuk memulai tanpa pijakan')
+            return
+        self.start_relaxation_confirmed()
+
+    def start_relaxation_confirmed(self,*_):
+        dpg.hide_item('confirm_missing_foot')
+        if self.session_state!='IDLE' or not self.workflow().can_start:
+            self.log('MULAI dibatalkan: prasyarat BP/sesi berubah')
+            return
         name,user_id=self.baseline_identity
         if not self.start_music():
             return
@@ -1445,7 +1469,7 @@ class KursiMuApp:
             self.log('Sesi dijeda: musik dan pencatatan pijakan berhenti sementara')
         elif self.session_state=='PAUSED':
             if not d.can_resume:
-                self.log('LANJUTKAN ditolak: hubungkan BP dan Pijakan Sensor dahulu')
+                self.log('LANJUTKAN ditolak: hubungkan BP KursiMu dahulu')
                 return
             if self.audio_ready:
                 try:
@@ -1775,8 +1799,10 @@ class KursiMuApp:
             self.serial_connected=item['connected']
             dpg.set_value('serial_state',item['text'])
             dpg.configure_item('serial_state',color=GREEN if self.serial_connected else ORANGE)
-            if not self.serial_connected:
-                self.pause_on_disconnect('Pijakan Sensor')
+            # Foot COM is an optional data stream: its loss must not pause music
+            # or the BP session. No fabricated foot samples are recorded.
+            if not self.serial_connected and self.session_state=='RUNNING':
+                self.log('Pijakan terputus: relaksasi tetap berlangsung tanpa data pijakan')
             self.update_buttons()
         elif typ=='foot':
             self.update_foot(item['level'])
