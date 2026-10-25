@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.8 - guided eight-step session flow and status colors.
+KursiMu GUI v2.9 - refined spacious header and prominent KursiMu title.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -498,7 +498,7 @@ class KursiMuApp:
                 dpg.add_font_chars([0x25B6, 0x23F8, 0x25A0, 0x266B])
             self.fonts['base'] = base_font
             self.fonts['small'] = dpg.add_font(str(font), 14)
-            self.fonts['title'] = dpg.add_font(str(bold if bold.exists() else font), 25)
+            self.fonts['title'] = dpg.add_font(str(bold if bold.exists() else font), 35)
             self.fonts['hero'] = dpg.add_font(str(bold if bold.exists() else font), 40)
             self.fonts['section'] = dpg.add_font(str(bold if bold.exists() else font), 19)
             self.fonts['metric'] = dpg.add_font(str(bold if bold.exists() else font), 23)
@@ -538,6 +538,14 @@ class KursiMuApp:
                 dpg.add_theme_style(dpg.mvStyleVar_FrameRounding,7)
                 dpg.add_theme_style(dpg.mvStyleVar_ChildRounding,12)
                 dpg.add_theme_style(dpg.mvStyleVar_WindowBorderSize,0)
+        with dpg.theme(tag='theme_header'):
+            with dpg.theme_component(dpg.mvChildWindow):
+                dpg.add_theme_color(dpg.mvThemeCol_ChildBg, (249, 253, 250, 255))
+                dpg.add_theme_color(dpg.mvThemeCol_Border, LINE)
+                dpg.add_theme_style(dpg.mvStyleVar_ChildRounding, 12)
+                dpg.add_theme_style(dpg.mvStyleVar_ChildBorderSize, 1)
+                dpg.add_theme_style(dpg.mvStyleVar_WindowPadding, 18, 8)
+                dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing, 7, 6)
         with dpg.theme(tag='theme_music_dialog'):
             with dpg.theme_component(dpg.mvAll):
                 dpg.add_theme_color(dpg.mvThemeCol_WindowBg, WHITE)
@@ -835,26 +843,36 @@ class KursiMuApp:
                             clear_color=BG)
         with dpg.window(tag='main',no_title_bar=True,no_move=True,no_resize=True,
                         no_collapse=True,no_scrollbar=True):
-            with dpg.group(horizontal=True,tag='header'):
-                dpg.add_text('KursiMu',tag='app_title',color=DARK_GREEN)
-                self.bind_font('app_title','title')
-                dpg.add_text('RELAXATION & HEALTH MONITORING',color=MUTED)
-                if self.demo:
-                    dpg.add_text('DATA SIMULASI',color=ORANGE)
-            dpg.add_button(label='TUTUP APLIKASI   X',tag='btn_close',
-                           callback=self.request_close,height=36,width=185)
-            dpg.bind_item_theme('btn_close','theme_close')
-            with dpg.group(horizontal=True,tag='state_row'):
-                dpg.add_text('BP KursiMu:',color=MUTED)
-                dpg.add_text('DEMO' if self.demo else 'Mencari...',tag='ble_state',color=ORANGE)
-                dpg.add_spacer(width=22)
-                dpg.add_text('Pijakan Sensor:',color=MUTED)
-                dpg.add_text('DEMO' if self.demo else 'Belum terhubung',tag='serial_state',color=ORANGE)
-                dpg.add_spacer(width=22)
-                dpg.add_text('Status BP:',color=MUTED)
-                dpg.add_text('DEMO' if self.demo else '--',tag='bp_state',color=DARK_GREEN)
-                dpg.add_spacer(width=15)
-                dpg.add_text(datetime.now().strftime('%d %b %Y  %H:%M'),tag='clock',color=MUTED)
+            with dpg.child_window(tag='topbar', width=-1, height=89,
+                                  border=True, no_scrollbar=True):
+                # Brand is intentionally the only headline; system information
+                # lives on a quieter second row.
+                with dpg.group(horizontal=True, tag='header'):
+                    dpg.add_text('KursiMu', tag='app_title', color=DARK_GREEN)
+                    self.bind_font('app_title', 'title')
+                    if self.demo:
+                        dpg.add_spacer(width=12)
+                        dpg.add_text('MODE SIMULASI', color=ORANGE)
+                dpg.add_spacer(height=2)
+                with dpg.group(horizontal=True, tag='state_row'):
+                    dpg.add_text('BP KursiMu', color=MUTED)
+                    dpg.add_text('DEMO' if self.demo else 'Mencari...',
+                                 tag='ble_state', color=ORANGE)
+                    dpg.add_spacer(width=32)
+                    dpg.add_text('Pijakan Sensor', color=MUTED)
+                    dpg.add_text('DEMO' if self.demo else 'Belum terhubung',
+                                 tag='serial_state', color=ORANGE)
+                    dpg.add_spacer(width=32)
+                    dpg.add_text('Status BP', color=MUTED)
+                    dpg.add_text('DEMO' if self.demo else '--',
+                                 tag='bp_state', color=DARK_GREEN)
+                # These two elements use explicit top-right positions in layout().
+                dpg.add_text(datetime.now().strftime('%d %b %Y  %H:%M'),
+                             tag='clock', color=MUTED)
+                dpg.add_button(label='TUTUP APLIKASI   X', tag='btn_close',
+                               callback=self.request_close, height=38, width=185)
+                dpg.bind_item_theme('btn_close', 'theme_close')
+            dpg.bind_item_theme('topbar', 'theme_header')
             dpg.add_text('Ukur AWAL  >  Mulai relaksasi  >  Ukur AKHIR  >  Selesai',
                          tag='activity_line',color=MUTED)
             with dpg.child_window(tag='toolbar',height=204,width=-1,border=True,no_scrollbar=True):
@@ -993,7 +1011,9 @@ class KursiMuApp:
         self.last_layout_size=key
         dpg.configure_item('main',width=width,height=height,
                            no_scrollbar=height>=900)
-        dpg.set_item_pos('btn_close',[max(8,width-207),8])
+        # Alignment is relative to the header card, not the whole viewport.
+        dpg.set_item_pos('btn_close', [max(10,width-235), 11])
+        dpg.set_item_pos('clock', [max(10,width-430), 21])
         content_width=width-44
         button_width=max(150,(content_width-30)//4)
         for tag in ('btn_start','btn_pause','btn_finish','btn_music'):
@@ -1006,7 +1026,7 @@ class KursiMuApp:
         toolbar_h=174
         footer_h=54 if height>=850 else 44
         comparison_h=157 if height>=850 else 143
-        available=height-toolbar_h-footer_h-comparison_h-126
+        available=height-toolbar_h-footer_h-comparison_h-160
         # A 520px panel on Full HD; smaller screens use a compact mode.
         panel_h=max(360,min(520,available))
         panel_w=max(255,(width-52)//3)
