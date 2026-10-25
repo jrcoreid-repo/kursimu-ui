@@ -1,0 +1,54 @@
+name: Build KursiMu Windows installer
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "kursimu_gui_v2.py"
+      - "session_rules.py"
+      - "requirements.txt"
+      - "assets/**"
+      - "logos/**"
+      - "music/**"
+      - "installer/**"
+      - "build_windows.ps1"
+      - ".github/workflows/windows-installer.yml"
+jobs:
+  package:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build self-contained Windows executable
+        shell: pwsh
+        run: ./build_windows.ps1
+      - name: Smoke test bundle files (no GUI)
+        shell: pwsh
+        run: |
+          if (!(Test-Path "dist/KursiMu/KursiMu.exe")) { throw "KursiMu.exe missing" }
+          if (!(Test-Path "dist/KursiMu/_internal/assets/kursimu.ico")) { throw "Icon missing in bundle" }
+          Write-Output "EXE and bundled icon present"
+      - name: Build installer using Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup --yes --no-progress
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (!(Test-Path $iscc)) { throw "Inno Setup compiler unavailable" }
+          & $iscc "installer\KursiMu.iss"
+          if ($LASTEXITCODE -ne 0) { throw "Installer build failed" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KursiMu-Windows-Portable
+          path: dist/KursiMu/
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KursiMu-Windows-Installer
+          path: dist/installer/*.exe
+          if-no-files-found: error
+          retention-days: 30
