@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.9 - refined spacious header and prominent KursiMu title.
+KursiMu GUI v2.9.1 - include color-coded session guidance within header.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -843,7 +843,7 @@ class KursiMuApp:
                             clear_color=BG)
         with dpg.window(tag='main',no_title_bar=True,no_move=True,no_resize=True,
                         no_collapse=True,no_scrollbar=True):
-            with dpg.child_window(tag='topbar', width=-1, height=89,
+            with dpg.child_window(tag='topbar', width=-1, height=134,
                                   border=True, no_scrollbar=True):
                 # Brand is intentionally the only headline; system information
                 # lives on a quieter second row.
@@ -866,15 +866,16 @@ class KursiMuApp:
                     dpg.add_text('Status BP', color=MUTED)
                     dpg.add_text('DEMO' if self.demo else '--',
                                  tag='bp_state', color=DARK_GREEN)
-                # These two elements use explicit top-right positions in layout().
+                dpg.add_spacer(height=6)
+                dpg.add_text('Ukur AWAL  >  Mulai relaksasi  >  Ukur AKHIR  >  Selesai',
+                             tag='activity_line', color=MUTED)
+                # Clock and Close are explicitly aligned to the upper right.
                 dpg.add_text(datetime.now().strftime('%d %b %Y  %H:%M'),
                              tag='clock', color=MUTED)
                 dpg.add_button(label='TUTUP APLIKASI   X', tag='btn_close',
                                callback=self.request_close, height=38, width=185)
                 dpg.bind_item_theme('btn_close', 'theme_close')
             dpg.bind_item_theme('topbar', 'theme_header')
-            dpg.add_text('Ukur AWAL  >  Mulai relaksasi  >  Ukur AKHIR  >  Selesai',
-                         tag='activity_line',color=MUTED)
             with dpg.child_window(tag='toolbar',height=204,width=-1,border=True,no_scrollbar=True):
                 with dpg.group(horizontal=True,tag='identity_row'):
                     dpg.add_text('NAMA PENGGUNA',color=MUTED)
@@ -1014,6 +1015,8 @@ class KursiMuApp:
         # Alignment is relative to the header card, not the whole viewport.
         dpg.set_item_pos('btn_close', [max(10,width-235), 11])
         dpg.set_item_pos('clock', [max(10,width-430), 21])
+        # Keep colored instructions inside the header, below device status.
+        dpg.set_item_pos('activity_line', [18, 101])
         content_width=width-44
         button_width=max(150,(content_width-30)//4)
         for tag in ('btn_start','btn_pause','btn_finish','btn_music'):
@@ -1026,7 +1029,7 @@ class KursiMuApp:
         toolbar_h=174
         footer_h=54 if height>=850 else 44
         comparison_h=157 if height>=850 else 143
-        available=height-toolbar_h-footer_h-comparison_h-160
+        available=height-toolbar_h-footer_h-comparison_h-205
         # A 520px panel on Full HD; smaller screens use a compact mode.
         panel_h=max(360,min(520,available))
         panel_w=max(255,(width-52)//3)
