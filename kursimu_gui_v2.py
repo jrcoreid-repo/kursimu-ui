@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.11.4 - custom KursiMu Windows icon.
+KursiMu GUI v2.11.5 - stage-colored BP progress dialog.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -566,13 +566,46 @@ class KursiMuApp:
                 dpg.add_theme_color(dpg.mvThemeCol_HeaderActive,(184,224,201,255))
                 dpg.add_theme_style(dpg.mvStyleVar_PopupRounding,8)
                 dpg.add_theme_style(dpg.mvStyleVar_PopupBorderSize,1)
-        with dpg.theme(tag='theme_bp_progress'):
+        with dpg.theme(tag='theme_bp_yellow'):
             with dpg.theme_component(dpg.mvWindowAppItem):
-                dpg.add_theme_color(dpg.mvThemeCol_WindowBg,(255,202,114,255))
-                dpg.add_theme_color(dpg.mvThemeCol_TitleBg,(231,146,45,255))
-                dpg.add_theme_color(dpg.mvThemeCol_TitleBgActive,(231,146,45,255))
-                dpg.add_theme_color(dpg.mvThemeCol_Text,(30,29,27,255))
-                dpg.add_theme_color(dpg.mvThemeCol_Border,(224,145,51,255))
+                dpg.add_theme_color(dpg.mvThemeCol_WindowBg,(255,225,113,255))
+                dpg.add_theme_color(dpg.mvThemeCol_TitleBg,(240,186,48,255))
+                dpg.add_theme_color(dpg.mvThemeCol_TitleBgActive,(240,186,48,255))
+                dpg.add_theme_color(dpg.mvThemeCol_Text,(28,28,28,255))
+                dpg.add_theme_color(dpg.mvThemeCol_Border,(218,173,55,255))
+                dpg.add_theme_style(dpg.mvStyleVar_WindowPadding,14,9)
+                dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing,5,4)
+                dpg.add_theme_style(dpg.mvStyleVar_WindowBorderSize,1)
+                dpg.add_theme_style(dpg.mvStyleVar_WindowRounding,10)
+        with dpg.theme(tag='theme_bp_orange'):
+            with dpg.theme_component(dpg.mvWindowAppItem):
+                dpg.add_theme_color(dpg.mvThemeCol_WindowBg,(255,185,91,255))
+                dpg.add_theme_color(dpg.mvThemeCol_TitleBg,(231,131,32,255))
+                dpg.add_theme_color(dpg.mvThemeCol_TitleBgActive,(231,131,32,255))
+                dpg.add_theme_color(dpg.mvThemeCol_Text,(28,28,28,255))
+                dpg.add_theme_color(dpg.mvThemeCol_Border,(210,116,27,255))
+                dpg.add_theme_style(dpg.mvStyleVar_WindowPadding,14,9)
+                dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing,5,4)
+                dpg.add_theme_style(dpg.mvStyleVar_WindowBorderSize,1)
+                dpg.add_theme_style(dpg.mvStyleVar_WindowRounding,10)
+        with dpg.theme(tag='theme_bp_green'):
+            with dpg.theme_component(dpg.mvWindowAppItem):
+                dpg.add_theme_color(dpg.mvThemeCol_WindowBg,(139,221,155,255))
+                dpg.add_theme_color(dpg.mvThemeCol_TitleBg,(55,159,98,255))
+                dpg.add_theme_color(dpg.mvThemeCol_TitleBgActive,(55,159,98,255))
+                dpg.add_theme_color(dpg.mvThemeCol_Text,(28,28,28,255))
+                dpg.add_theme_color(dpg.mvThemeCol_Border,(39,141,85,255))
+                dpg.add_theme_style(dpg.mvStyleVar_WindowPadding,14,9)
+                dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing,5,4)
+                dpg.add_theme_style(dpg.mvStyleVar_WindowBorderSize,1)
+                dpg.add_theme_style(dpg.mvStyleVar_WindowRounding,10)
+        with dpg.theme(tag='theme_bp_red'):
+            with dpg.theme_component(dpg.mvWindowAppItem):
+                dpg.add_theme_color(dpg.mvThemeCol_WindowBg,(255,174,161,255))
+                dpg.add_theme_color(dpg.mvThemeCol_TitleBg,(212,85,70,255))
+                dpg.add_theme_color(dpg.mvThemeCol_TitleBgActive,(212,85,70,255))
+                dpg.add_theme_color(dpg.mvThemeCol_Text,(28,28,28,255))
+                dpg.add_theme_color(dpg.mvThemeCol_Border,(190,66,54,255))
                 dpg.add_theme_style(dpg.mvStyleVar_WindowPadding,14,9)
                 dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing,5,4)
                 dpg.add_theme_style(dpg.mvStyleVar_WindowBorderSize,1)
@@ -1078,7 +1111,7 @@ class KursiMuApp:
             dpg.add_text('PERSIAPAN',tag='bp_progress_title',color=(28,28,28,255))
             dpg.add_text('Menunggu respons perangkat BP...',tag='bp_progress_detail',
                          color=(42,38,30,255),wrap=355)
-        dpg.bind_item_theme('bp_progress','theme_bp_progress')
+        dpg.bind_item_theme('bp_progress','theme_bp_yellow')
         with dpg.window(tag='confirm_close',label='Konfirmasi Keluar',modal=True,
                         show=False,no_resize=True,width=705,height=200):
             with dpg.group(tag='close_normal_group'):
@@ -1703,6 +1736,17 @@ class KursiMuApp:
         self.bp_popup_stage=stage
         dpg.set_value('bp_progress_title',stage)
         dpg.set_value('bp_progress_detail',detail)
+        # Phase-specific color with black text. Keep error visibly distinct.
+        if stage in ('POMPA DIMULAI',):
+            theme='theme_bp_orange'
+        elif stage in ('ANALISA TEKANAN DARAH','PENGUKURAN SELESAI'):
+            theme='theme_bp_green'
+        elif stage in ('PENGUKURAN GAGAL','PERINTAH DITOLAK',
+                       'PERINTAH BP BERMASALAH','KONEKSI TERPUTUS'):
+            theme='theme_bp_red'
+        else:
+            theme='theme_bp_yellow'
+        dpg.bind_item_theme('bp_progress',theme)
         # Always center relative to current viewport, including on first show.
         popup_w,popup_h=390,112
         dpg.configure_item('bp_progress',width=popup_w,height=popup_h)
