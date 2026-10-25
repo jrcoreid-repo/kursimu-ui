@@ -67,17 +67,21 @@ except ImportError:
     serial = None
     list_ports = None
 
-ROOT = Path(__file__).resolve().parent
-DATA_DIR = ROOT / "kursimu_data"
+# Frozen packages are installed under a protected Program Files folder.
+# Keep bundled resources read-only and patient/session data in AppData.
+FROZEN = bool(getattr(sys, "frozen", False))
+ROOT = Path(sys.executable).resolve().parent if FROZEN else Path(__file__).resolve().parent
+USER_ROOT = (Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local") / "KursiMu") if FROZEN and sys.platform == "win32" else ROOT
+DATA_DIR = USER_ROOT / "kursimu_data"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 RAW_RESULTS = DATA_DIR / "kursimu_results.jsonl"
 EXPORT_DIR = DATA_DIR / "exports"
 EXPORT_DIR.mkdir(exist_ok=True)
 SESSION_DIR = DATA_DIR / "sessions"
 SESSION_DIR.mkdir(exist_ok=True)
-LOGO_DIR = ROOT / "logos"
+LOGO_DIR = USER_ROOT / "logos"
 LOGO_DIR.mkdir(exist_ok=True)
-MUSIC_DIR = ROOT / "music"
+MUSIC_DIR = USER_ROOT / "music"
 MUSIC_DIR.mkdir(exist_ok=True)
 DEFAULT_MUSIC = MUSIC_DIR / "relaksasi.mp3"
 MUSIC_EXTENSIONS = {".mp3", ".wav", ".ogg"}
@@ -915,7 +919,9 @@ class KursiMuApp:
         """Replace Python's default titlebar/taskbar icon with KursiMu's icon."""
         if sys.platform != 'win32':
             return
-        icon_file = ROOT / 'assets' / 'kursimu.ico'
+        icon_file = (Path(getattr(sys, '_MEIPASS', str(ROOT))) / 'assets' / 'kursimu.ico')
+        if not icon_file.is_file():
+            icon_file = ROOT / 'assets' / 'kursimu.ico'
         if not icon_file.is_file():
             self.log('Ikon KursiMu tidak ditemukan: '+str(icon_file))
             return
