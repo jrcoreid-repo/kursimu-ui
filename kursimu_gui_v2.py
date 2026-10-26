@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.11.16 - compact centered optional foot warning.
+KursiMu GUI v2.11.17 - fix clipped foot warning controls.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -671,6 +671,16 @@ class KursiMuApp:
                 dpg.add_theme_style(dpg.mvStyleVar_WindowPadding, 22, 18)
                 dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing, 10, 9)
                 dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 8)
+        with dpg.theme(tag='theme_foot_confirm'):
+            with dpg.theme_component(dpg.mvAll):
+                dpg.add_theme_color(dpg.mvThemeCol_WindowBg,WHITE)
+                dpg.add_theme_color(dpg.mvThemeCol_TitleBg,DARK_GREEN)
+                dpg.add_theme_color(dpg.mvThemeCol_TitleBgActive,GREEN)
+                dpg.add_theme_color(dpg.mvThemeCol_Text,INK)
+                dpg.add_theme_color(dpg.mvThemeCol_ModalWindowDimBg,(23,43,33,130))
+                dpg.add_theme_style(dpg.mvStyleVar_WindowPadding,16,12)
+                dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing,8,6)
+                dpg.add_theme_style(dpg.mvStyleVar_FrameRounding,8)
         with dpg.theme(tag='theme_foot_progress'):
             with dpg.theme_component(dpg.mvProgressBar):
                 dpg.add_theme_color(dpg.mvThemeCol_PlotHistogram, GREEN)
@@ -1150,7 +1160,7 @@ class KursiMuApp:
         dpg.bind_item_theme('music_dialog','theme_music_dialog')
         with dpg.window(tag='confirm_missing_foot',label='PIJAKAN BELUM TERSAMBUNG',
                         modal=True,show=False,no_resize=True,no_move=True,
-                        no_collapse=True,no_scrollbar=True,width=490,height=205):
+                        no_collapse=True,no_scrollbar=True,width=500,height=270):
             dpg.add_text('Sensor pijakan belum terhubung.',color=ORANGE)
             dpg.add_text('Relaksasi tetap bisa dimulai tanpa sensor pijakan.',
                          color=INK,wrap=450)
@@ -1162,7 +1172,7 @@ class KursiMuApp:
                                callback=self.start_relaxation_confirmed)
                 dpg.add_button(label='BATAL / SAMBUNG COM',width=210,height=40,
                                callback=lambda *args:dpg.hide_item('confirm_missing_foot'))
-        dpg.bind_item_theme('confirm_missing_foot','theme_music_dialog')
+        dpg.bind_item_theme('confirm_missing_foot','theme_foot_confirm')
         with dpg.window(tag='bp_progress',label='PENGUKURAN BP',
                         show=False,modal=False,no_resize=True,no_move=True,
                         no_scrollbar=True,no_scroll_with_mouse=True,
@@ -1564,7 +1574,8 @@ class KursiMuApp:
         self.audio_playing=False
 
     def center_missing_foot_dialog(self):
-        w,h=490,205
+        # Leave space for DearPyGui titlebar, DPI-scaled padding and full buttons.
+        w,h=500,270
         dpg.configure_item('confirm_missing_foot',width=w,height=h)
         dpg.set_item_pos('confirm_missing_foot',[
             max(0,(dpg.get_viewport_width()-w)//2),
