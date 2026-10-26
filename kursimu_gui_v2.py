@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.11.12 - boxed header statuses and roomier toolbar.
+KursiMu GUI v2.11.13 - redesigned compact status header.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -636,6 +636,11 @@ class KursiMuApp:
                 dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing,5,4)
                 dpg.add_theme_style(dpg.mvStyleVar_WindowBorderSize,1)
                 dpg.add_theme_style(dpg.mvStyleVar_WindowRounding,10)
+        with dpg.theme(tag='theme_guidance'):
+            with dpg.theme_component(dpg.mvChildWindow):
+                dpg.add_theme_color(dpg.mvThemeCol_ChildBg,(236,246,240,255))
+                dpg.add_theme_style(dpg.mvStyleVar_WindowPadding,10,7)
+                dpg.add_theme_style(dpg.mvStyleVar_ChildRounding,7)
         with dpg.theme(tag='theme_header_status'):
             with dpg.theme_component(dpg.mvChildWindow):
                 dpg.add_theme_color(dpg.mvThemeCol_ChildBg,(240,248,243,255))
@@ -995,7 +1000,7 @@ class KursiMuApp:
                             clear_color=BG)
         with dpg.window(tag='main',no_title_bar=True,no_move=True,no_resize=True,
                         no_collapse=True,no_scrollbar=True):
-            with dpg.child_window(tag='topbar', width=-1, height=164,
+            with dpg.child_window(tag='topbar', width=-1, height=174,
                                   border=True, no_scrollbar=True):
                 # Brand is intentionally the only headline; system information
                 # lives on a quieter second row.
@@ -1027,9 +1032,11 @@ class KursiMuApp:
                                          tag='bp_state',color=DARK_GREEN)
                 for status_box in ('header_bp_box','header_foot_box','header_state_box'):
                     dpg.bind_item_theme(status_box,'theme_header_status')
-                dpg.add_spacer(height=6)
-                dpg.add_text('Ukur AWAL  >  Mulai relaksasi  >  Ukur AKHIR  >  Selesai',
-                             tag='activity_line', color=MUTED)
+                with dpg.child_window(tag='header_guidance_box',height=34,
+                                      width=-1,border=False,no_scrollbar=True):
+                    dpg.add_text('Ukur AWAL  >  Mulai relaksasi  >  Ukur AKHIR  >  Selesai',
+                                 tag='activity_line', color=MUTED)
+                dpg.bind_item_theme('header_guidance_box','theme_guidance')
                 # Clock and Close are explicitly aligned to the upper right.
                 dpg.add_text(datetime.now().strftime('%d %b %Y  %H:%M'),
                              tag='clock', color=MUTED)
@@ -1220,7 +1227,7 @@ class KursiMuApp:
         dpg.set_item_pos('btn_close', [max(10,width-235), 11])
         dpg.set_item_pos('clock', [max(10,width-430), 21])
         # Keep colored instructions inside the header, below device status.
-        dpg.set_item_pos('activity_line', [18, 132])
+        # Guidance is now in a dedicated full-width strip below status cards.
         content_width=width-44
         button_width=max(125,(content_width-48)//5)
         for tag in ('btn_start','btn_pause','btn_finish','btn_music','btn_new'):
@@ -1230,10 +1237,10 @@ class KursiMuApp:
         dpg.configure_item('patient_id',width=190+extra//3)
         dpg.configure_item('connection_spacer',width=max(8,(width-1200)//4))
         # Roomier cards and result strip, with a compact control bar and logo footer.
-        toolbar_h=228
+        toolbar_h=208
         footer_h=54 if height>=850 else 44
         comparison_h=157 if height>=850 else 143
-        available=height-toolbar_h-footer_h-comparison_h-235
+        available=height-toolbar_h-footer_h-comparison_h-225
         # A 520px panel on Full HD; smaller screens use a compact mode.
         panel_h=max(360,min(520,available))
         panel_w=max(255,(width-52)//3)
