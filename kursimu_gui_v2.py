@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.11.10 - fix clipped exit confirmation buttons.
+KursiMu GUI v2.11.11 - balanced session and connection toolbar.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -1034,10 +1034,8 @@ class KursiMuApp:
                     dpg.add_spacer(width=8)
                     dpg.add_text('STATUS',color=MUTED)
                     dpg.add_text('BELUM TERHUBUNG',tag='session_state',color=RED)
-                    dpg.add_spacer(width=24)  # keep session status distinct from the next action
-                    dpg.add_button(label='SESI BARU',tag='btn_new',width=140,callback=self.new_session)
-                    dpg.bind_item_theme('btn_new','theme_neutral')
                 dpg.add_separator()
+                dpg.add_text('KONTROL SESI',color=DARK_GREEN)
                 with dpg.group(horizontal=True,tag='action_row'):
                     dpg.add_button(label='▶  MULAI',tag='btn_start',height=47,width=250,
                                    callback=self.begin_relaxation)
@@ -1051,8 +1049,13 @@ class KursiMuApp:
                     dpg.add_button(label='♫  PILIH MUSIK',tag='btn_music',height=47,width=250,
                                    callback=self.open_music_picker)
                     dpg.bind_item_theme('btn_music','theme_music')
-                    for action_tag in ('btn_start','btn_pause','btn_finish','btn_music'):
+                    dpg.add_button(label='SESI BARU',tag='btn_new',height=47,width=150,
+                                   callback=self.new_session)
+                    dpg.bind_item_theme('btn_new','theme_neutral')
+                    for action_tag in ('btn_start','btn_pause','btn_finish','btn_music','btn_new'):
                         self.bind_font(action_tag,'action')
+                dpg.add_separator()
+                dpg.add_text('KONEKSI & INFORMASI',color=DARK_GREEN)
                 with dpg.group(horizontal=True,tag='connect_row'):
                     dpg.add_text('COM PIJAKAN',color=MUTED)
                     dpg.add_combo(items=['Pilih COM'],default_value='Pilih COM',
@@ -1064,11 +1067,11 @@ class KursiMuApp:
                                    callback=self.toggle_serial,width=185)
                     dpg.bind_item_theme('btn_connect','theme_connect')
                     self.bind_font('btn_connect','action')
-                    dpg.add_spacer(width=20,tag='connection_spacer')
+                    dpg.add_spacer(width=12,tag='connection_spacer')
                     dpg.add_text('LAGU:',color=MUTED)
                     dpg.add_text(self.music_path.name if self.music_path else 'MP3 belum ditemukan - pilih musik',
                                  tag='music_label',color=DARK_GREEN)
-                with dpg.group(horizontal=True,tag='recovery_row'):
+                    dpg.add_spacer(width=14)
                     dpg.add_text('HASIL BP:',color=MUTED)
                     dpg.add_text('Tidak ada',tag='unassigned_label',color=DARK_GREEN)
                     dpg.add_button(label='KE AWAL',tag='assign_awal',show=False,
@@ -1202,15 +1205,15 @@ class KursiMuApp:
         # Keep colored instructions inside the header, below device status.
         dpg.set_item_pos('activity_line', [18, 101])
         content_width=width-44
-        button_width=max(150,(content_width-30)//4)
-        for tag in ('btn_start','btn_pause','btn_finish','btn_music'):
+        button_width=max(125,(content_width-48)//5)
+        for tag in ('btn_start','btn_pause','btn_finish','btn_music','btn_new'):
             dpg.configure_item(tag,width=button_width)
         extra=max(0,width-1380)
         dpg.configure_item('patient_name',width=235+extra//3)
         dpg.configure_item('patient_id',width=190+extra//3)
-        dpg.configure_item('connection_spacer',width=max(8,width-1030))
+        dpg.configure_item('connection_spacer',width=max(8,(width-1200)//4))
         # Roomier cards and result strip, with a compact control bar and logo footer.
-        toolbar_h=174
+        toolbar_h=195
         footer_h=54 if height>=850 else 44
         comparison_h=157 if height>=850 else 143
         available=height-toolbar_h-footer_h-comparison_h-205
