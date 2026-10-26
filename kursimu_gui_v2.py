@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.11.17 - fix clipped foot warning controls.
+KursiMu GUI v2.11.18 - single-row header guidance.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -1011,7 +1011,7 @@ class KursiMuApp:
                             clear_color=BG)
         with dpg.window(tag='main',no_title_bar=True,no_move=True,no_resize=True,
                         no_collapse=True,no_scrollbar=True):
-            with dpg.child_window(tag='topbar', width=-1, height=174,
+            with dpg.child_window(tag='topbar', width=-1, height=142,
                                   border=True, no_scrollbar=True):
                 # Brand is intentionally the only headline; system information
                 # lives on a quieter second row.
@@ -1041,14 +1041,14 @@ class KursiMuApp:
                             dpg.add_text('Status BP',color=MUTED)
                             dpg.add_text('DEMO' if self.demo else '--',
                                          tag='bp_state',color=DARK_GREEN)
+                    with dpg.child_window(tag='header_guidance_box',height=48,
+                                          width=440,border=True,no_scrollbar=True):
+                        dpg.add_text('Ukur AWAL > Relaksasi > Ukur AKHIR > Selesai',
+                                     tag='activity_line',color=MUTED)
+                        self.bind_font('activity_line','guidance')
                 for status_box in ('header_bp_box','header_foot_box','header_state_box'):
                     dpg.bind_item_theme(status_box,'theme_header_status')
-                with dpg.child_window(tag='header_guidance_box',height=34,
-                                      width=-1,border=False,no_scrollbar=True):
-                    dpg.add_text('Ukur AWAL  >  Mulai relaksasi  >  Ukur AKHIR  >  Selesai',
-                                 tag='activity_line', color=MUTED)
-                    self.bind_font('activity_line','guidance')
-                dpg.bind_item_theme('header_guidance_box','theme_guidance')
+
                 # Clock and Close are explicitly aligned to the upper right.
                 dpg.add_text(datetime.now().strftime('%d %b %Y  %H:%M'),
                              tag='clock', color=MUTED)
@@ -1259,7 +1259,10 @@ class KursiMuApp:
         panel_h=max(360,min(520,available))
         panel_w=max(255,(width-52)//3)
         dpg.configure_item('toolbar',height=toolbar_h)
-        status_box_width=max(200,min(295,(width-75)//3))
+        # Four balanced items on a single horizontal status row.
+        status_box_width=max(155,min(255,(width-460)//3))
+        guidance_width=max(245,width-3*status_box_width-85)
+        dpg.configure_item('header_guidance_box',width=guidance_width)
         for tag in ('header_bp_box','header_foot_box','header_state_box'):
             dpg.configure_item(tag,width=status_box_width)
         for panel in ('panel_foot','panel_awal','panel_akhir'):
