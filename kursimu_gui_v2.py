@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.11.18 - single-row header guidance.
+KursiMu GUI v2.11.19 - coordinated dynamic status cards.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -642,6 +642,21 @@ class KursiMuApp:
                 dpg.add_theme_color(dpg.mvThemeCol_ChildBg,(236,246,240,255))
                 dpg.add_theme_style(dpg.mvStyleVar_WindowPadding,10,7)
                 dpg.add_theme_style(dpg.mvStyleVar_ChildRounding,7)
+        # Shared semantic pastel palette for all device/status cards.
+        for name, bg, border in (
+            ('success',(228,248,236,255),(117,199,149,255)),
+            ('warning',(255,246,227,255),(237,189,102,255)),
+            ('error',(255,237,237,255),(229,151,149,255)),
+            ('info',(233,244,255,255),(151,192,231,255)),
+        ):
+            with dpg.theme(tag='theme_status_'+name):
+                with dpg.theme_component(dpg.mvChildWindow):
+                    dpg.add_theme_color(dpg.mvThemeCol_ChildBg,bg)
+                    dpg.add_theme_color(dpg.mvThemeCol_Border,border)
+                    dpg.add_theme_style(dpg.mvStyleVar_ChildRounding,8)
+                    dpg.add_theme_style(dpg.mvStyleVar_ChildBorderSize,1)
+                    dpg.add_theme_style(dpg.mvStyleVar_WindowPadding,10,11)
+                    dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing,6,3)
         with dpg.theme(tag='theme_header_status'):
             with dpg.theme_component(dpg.mvChildWindow):
                 dpg.add_theme_color(dpg.mvThemeCol_ChildBg,(240,248,243,255))
@@ -1787,6 +1802,32 @@ class KursiMuApp:
             music_ready=self.demo or bool(self.music_path and self.music_path.is_file()),
         )
 
+    def update_status_cards(self):
+        """Color panels by actual connection, measurement, and session state."""
+        if self.demo:
+            bp='info'
+            foot='info'
+            device='info'
+        else:
+            bp=('success' if self.ble_connected else
+                'warning' if self.bp_status is None else 'error')
+            foot='success' if self.serial_connected else 'warning'
+            if not self.ble_connected:
+                device='error'
+            elif self.bp_status is None:
+                device='warning'
+            else:
+                state=self.bp_status['state']
+                device=('error' if state==6 else
+                        'warning' if state in (1,2,3,4) else
+                        'success' if state in (0,5) else 'info')
+        guidance={'red':'error','yellow':'warning','green':'success'}.get(
+            self.workflow().color,'info')
+        for tag,kind in (
+            ('header_bp_box',bp),('header_foot_box',foot),
+            ('header_state_box',device),('header_guidance_box',guidance)):
+            dpg.bind_item_theme(tag,'theme_status_'+kind)
+
     def update_buttons(self):
         d=self.workflow()
         dpg.configure_item('btn_awal',enabled=d.can_measure_awal)
@@ -1821,6 +1862,7 @@ class KursiMuApp:
         dpg.configure_item('session_state',color=color)
         dpg.set_value('activity_line',d.guidance)
         dpg.configure_item('activity_line',color=color)
+        self.update_status_cards()
 
 
     def show_bp_progress(self, stage, detail='', auto_close_ms=None):
