@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.11.15 - bold important status guidance.
+KursiMu GUI v2.11.16 - compact centered optional foot warning.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -1148,17 +1148,19 @@ class KursiMuApp:
             dpg.add_text('Belum ada file dipilih.',
                          tag='music_picker_status', color=MUTED, wrap=735)
         dpg.bind_item_theme('music_dialog','theme_music_dialog')
-        with dpg.window(tag='confirm_missing_foot',label='Pijakan Tidak Terhubung',
-                        modal=True,show=False,no_resize=True,width=670,height=190):
-            dpg.add_text('Sensor pijakan (Serial COM) belum terhubung.',color=ORANGE)
-            dpg.add_text('Pengukuran BP dan relaksasi tetap dapat berjalan tanpa data pijakan.')
-            dpg.add_text('File CSV pijakan akan kosong selama tidak ada sampel yang diterima.',
-                         color=MUTED)
+        with dpg.window(tag='confirm_missing_foot',label='PIJAKAN BELUM TERSAMBUNG',
+                        modal=True,show=False,no_resize=True,no_move=True,
+                        no_collapse=True,no_scrollbar=True,width=490,height=205):
+            dpg.add_text('Sensor pijakan belum terhubung.',color=ORANGE)
+            dpg.add_text('Relaksasi tetap bisa dimulai tanpa sensor pijakan.',
+                         color=INK,wrap=450)
+            dpg.add_text('Data pijakan tidak direkam selama sensor belum tersambung.',
+                         color=MUTED,wrap=450)
             dpg.add_spacer(height=12)
             with dpg.group(horizontal=True):
-                dpg.add_button(label='LANJUTKAN TANPA PIJAKAN',width=285,height=40,
+                dpg.add_button(label='LANJUT TANPA PIJAKAN',width=215,height=40,
                                callback=self.start_relaxation_confirmed)
-                dpg.add_button(label='BATAL / SAMBUNG COM',width=240,height=40,
+                dpg.add_button(label='BATAL / SAMBUNG COM',width=210,height=40,
                                callback=lambda *args:dpg.hide_item('confirm_missing_foot'))
         dpg.bind_item_theme('confirm_missing_foot','theme_music_dialog')
         with dpg.window(tag='bp_progress',label='PENGUKURAN BP',
@@ -1561,6 +1563,13 @@ class KursiMuApp:
                 pass
         self.audio_playing=False
 
+    def center_missing_foot_dialog(self):
+        w,h=490,205
+        dpg.configure_item('confirm_missing_foot',width=w,height=h)
+        dpg.set_item_pos('confirm_missing_foot',[
+            max(0,(dpg.get_viewport_width()-w)//2),
+            max(0,(dpg.get_viewport_height()-h)//2)])
+
     def begin_relaxation(self,*_):
         if self.session_state!='IDLE':
             self.log('Sesi sudah dibuat. Gunakan LANJUTKAN atau SESI BARU.')
@@ -1569,6 +1578,7 @@ class KursiMuApp:
             self.log('MULAI ditolak: '+self.workflow().guidance)
             return
         if not self.demo and not self.serial_connected:
+            self.center_missing_foot_dialog()
             dpg.show_item('confirm_missing_foot')
             self.log('Pijakan tidak terhubung; menunggu konfirmasi untuk memulai tanpa pijakan')
             return
