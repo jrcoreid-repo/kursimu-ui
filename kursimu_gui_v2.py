@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.11.13 - redesigned compact status header.
+KursiMu GUI v2.11.14 - fully visible BP mmHg units.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -1267,7 +1267,7 @@ class KursiMuApp:
         for target in ('awal','akhir'):
             for metric in ('sys','dia'):
                 dpg.configure_item(f'bp_box_{target}_{metric}',
-                                   height=110 if compact else 132)
+                                   height=146 if compact else 158)
             for metric in ('pulse','pp','map'):
                 dpg.configure_item(f'metric_box_{target}_{metric}',
                                    height=73 if compact else 89)
