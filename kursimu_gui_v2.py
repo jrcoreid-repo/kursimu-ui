@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.11.5 - stage-colored BP progress dialog.
+KursiMu GUI v2.11.6 - cold-start diagnosis and safe manual recovery.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -1769,6 +1769,8 @@ class KursiMuApp:
             theme='theme_bp_orange'
         elif stage in ('ANALISA TEKANAN DARAH','PENGUKURAN SELESAI'):
             theme='theme_bp_green'
+        elif stage == 'COLD START - PERIKSA BP':
+            theme='theme_bp_yellow'
         elif stage in ('PENGUKURAN GAGAL','PERINTAH DITOLAK',
                        'PERINTAH BP BERMASALAH','KONEKSI TERPUTUS'):
             theme='theme_bp_red'
@@ -1816,7 +1818,8 @@ class KursiMuApp:
             return
         self.pending_target={'target':target,
                              'baseline':self.bp_status['total'],
-                             'accepted':False}
+                             'accepted':False,
+                             'pump_seen':False}
         # Once per click. No automatic retry or START on BLE reconnect.
         self.show_bp_progress('PERSIAPAN','Mengirim perintah ukur BP '+target.upper()+'...')
         self.ble_requests.put({'op':OP_START,'target':target})
@@ -1983,12 +1986,22 @@ class KursiMuApp:
                 if code==1:
                     self.show_bp_progress('PERSIAPAN','Perintah diterima. Menunggu pompa BP.')
                 elif code==2:
+                    self.pending_target['pump_seen']=True
                     self.show_bp_progress('POMPA DIMULAI','Pengukuran tekanan darah sedang berlangsung.')
                 else:
+                    self.pending_target['pump_seen']=True
                     self.show_bp_progress('ANALISA TEKANAN DARAH','Menunggu hasil pembacaan dari alat BP.')
             if self.pending_target and self.pending_target['accepted'] and code==6:
-                self.show_bp_progress('PENGUKURAN GAGAL','Alat melaporkan error atau timeout.',auto_close_ms=4500)
-                self.log('BP gagal atau timeout. Hasil tidak dipasangkan')
+                if (self.pending_target['target']=='awal' and
+                        not self.pending_target.get('pump_seen')):
+                    self.show_bp_progress('COLD START - PERIKSA BP',
+                        'Pompa belum terdeteksi. Periksa modul sebelum tekan UKUR lagi.',
+                        auto_close_ms=6500)
+                    self.log('COLD START: BP ERROR tanpa indikasi pompa; START ulang hanya secara manual')
+                else:
+                    self.show_bp_progress('PENGUKURAN GAGAL',
+                        'Alat melaporkan error atau timeout.',auto_close_ms=4500)
+                    self.log('BP gagal atau timeout. Hasil tidak dipasangkan')
                 self.pending_target=None
                 self.unlock_failed_awal()
             if previous is None or previous['state']!=code:
