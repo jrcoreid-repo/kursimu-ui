@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.11.6 - cold-start diagnosis and safe manual recovery.
+KursiMu GUI v2.11.7 - friendly BP preparation guidance.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -1994,10 +1994,10 @@ class KursiMuApp:
             if self.pending_target and self.pending_target['accepted'] and code==6:
                 if (self.pending_target['target']=='awal' and
                         not self.pending_target.get('pump_seen')):
-                    self.show_bp_progress('COLD START - PERIKSA BP',
-                        'Pompa belum terdeteksi. Periksa modul sebelum tekan UKUR lagi.',
+                    self.show_bp_progress('PERSIAPAN AWAL BP',
+                        'Perangkat sedang menyiapkan pengukuran. Silakan tekan UKUR sekali lagi.',
                         auto_close_ms=6500)
-                    self.log('COLD START: BP ERROR tanpa indikasi pompa; START ulang hanya secara manual')
+                    self.log('Persiapan awal BP: sesi belum dimulai; silakan tekan UKUR sekali lagi (manual)')
                 else:
                     self.show_bp_progress('PENGUKURAN GAGAL',
                         'Alat melaporkan error atau timeout.',auto_close_ms=4500)
