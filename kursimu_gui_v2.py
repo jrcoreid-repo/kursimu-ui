@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.11.14 - fully visible BP mmHg units.
+KursiMu GUI v2.11.15 - bold important status guidance.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -535,6 +535,7 @@ class KursiMuApp:
             # add_font_chars() is deprecated and now a no-op.
             self.fonts['base'] = dpg.add_font(str(font), 16)
             self.fonts['small'] = dpg.add_font(str(font), 14)
+            self.fonts['guidance'] = dpg.add_font(str(bold if bold.exists() else font), 16)
             self.fonts['title'] = dpg.add_font(str(bold if bold.exists() else font), 35)
             self.fonts['hero'] = dpg.add_font(str(bold if bold.exists() else font), 40)
             self.fonts['section'] = dpg.add_font(str(bold if bold.exists() else font), 19)
@@ -1036,6 +1037,7 @@ class KursiMuApp:
                                       width=-1,border=False,no_scrollbar=True):
                     dpg.add_text('Ukur AWAL  >  Mulai relaksasi  >  Ukur AKHIR  >  Selesai',
                                  tag='activity_line', color=MUTED)
+                    self.bind_font('activity_line','guidance')
                 dpg.bind_item_theme('header_guidance_box','theme_guidance')
                 # Clock and Close are explicitly aligned to the upper right.
                 dpg.add_text(datetime.now().strftime('%d %b %Y  %H:%M'),
