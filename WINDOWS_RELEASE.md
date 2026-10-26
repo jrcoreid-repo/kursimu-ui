@@ -4,7 +4,7 @@
 1. Buka **GitHub → Actions → Build KursiMu Windows installer**.
 2. Pilih run terbaru berstatus **Success** di branch `main`.
 3. Pada bagian **Artifacts**, unduh:
-   - **KursiMu-Windows-Installer**: `KursiMu_Setup_2.11.5.exe`, untuk instalasi Windows per pengguna (tanpa instal Python).
+   - **KursiMu-Windows-Installer**: `KursiMu_Setup_1.0.0_Final.exe`, untuk instalasi Windows per pengguna (tanpa instal Python).
    - **KursiMu-Windows-Portable**: folder aplikasi `KursiMu`, ekstrak **seluruh** isi ZIP terlebih dahulu, lalu jalankan `KursiMu.exe`. Jangan mengambil EXE-nya saja: mode onedir membutuhkan `_internal`.
 4. Saat pertama dibuka, izinkan Bluetooth Windows dan hubungkan perangkat BP sesuai alur GUI. Perangkat USB serial memakai driver COM Windows yang sesuai hardware.
 
@@ -18,7 +18,7 @@ Hasil: `dist\KursiMu\KursiMu.exe`. Installer memerlukan Inno Setup 6:
 ```powershell
 & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "installer\KursiMu.iss"
 ```
-Hasil: `dist\installer\KursiMu_Setup_2.11.5.exe`.
+Hasil: `dist\installer\KursiMu_Setup_1.0.0_Final.exe`.
 
 ## Lokasi file dan aset
 - Aplikasi installer ada di `%LOCALAPPDATA%\Programs\KursiMu`.
@@ -26,7 +26,7 @@ Hasil: `dist\installer\KursiMu_Setup_2.11.5.exe`.
 - Musik: `%LOCALAPPDATA%\KursiMu\music`.
 - Logo PNG/JPG: `%LOCALAPPDATA%\KursiMu\logos`.
 - Ikon Windows: `assets\kursimu.ico`, sudah dibundel.
-- Aset **logo dan MP3 yang benar-benar di-commit ke repo sebelum build** akan ikut masuk paket dan disalin ke folder user pada peluncuran pertama (tidak menimpa file yang ada). Saat ini repo hanya berisi README di `logos/` dan `music/`, sehingga **foto/logo kustom dan MP3 pribadimu belum otomatis ada dalam installer**. Tambahkan file berlisensi jelas sebelum membuat release jika memang ingin ikut dibundel.
+- Aset **logo dan MP3 yang benar-benar di-commit ke repo sebelum build** akan ikut masuk paket dan disalin ke folder user pada peluncuran pertama (tidak menimpa file yang ada). Tiga logo PNG sudah dilacak di folder `logos/` dan ikut dibundel. Lagu MP3 pribadi belum dilacak di `music/`, sehingga belum otomatis ikut dalam installer. Tambahkan file berlisensi jelas sebelum membuat release jika memang ingin ikut dibundel.
 - Aset musik/logo tambahan juga bisa ditaruh manual di folder user tanpa rebuild.
 
 ## Kompatibilitas
