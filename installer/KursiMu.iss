@@ -1,5 +1,5 @@
 #define AppName "KursiMu"
-#define AppVersion "2.11.5"
+#define AppVersion "1.0.0"
 #define AppPublisher "JR-Core Lab"
 [Setup]
 AppId={{E7199D03-86A2-443C-B933-02754F321FAD}
@@ -9,7 +9,7 @@ AppPublisher={#AppPublisher}
 DefaultDirName={localappdata}\Programs\KursiMu
 DefaultGroupName=KursiMu
 OutputDir=..\dist\installer
-OutputBaseFilename=KursiMu_Setup_2.11.5
+OutputBaseFilename=KursiMu_Setup_1.0.0_Final
 Compression=lzma2
 SolidCompression=yes
 PrivilegesRequired=lowest
