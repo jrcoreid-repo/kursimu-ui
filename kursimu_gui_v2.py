@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.11.9 - confirm normal application exit.
+KursiMu GUI v2.11.10 - fix clipped exit confirmation buttons.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -1142,7 +1142,7 @@ class KursiMuApp:
         dpg.bind_item_theme('bp_progress','theme_bp_yellow')
         with dpg.window(tag='confirm_close',label='KELUAR KURSIMU',modal=True,
                         show=False,no_resize=True,no_move=True,no_collapse=True,
-                        no_scrollbar=True,width=460,height=150):
+                        no_scrollbar=True,width=500,height=220):
             with dpg.group(tag='close_idle_group',show=False):
                 dpg.add_text('Yakin ingin keluar dari KursiMu?',color=INK)
                 dpg.add_text('Aplikasi akan ditutup.',color=MUTED)
@@ -2076,7 +2076,9 @@ class KursiMuApp:
         dpg.show_item('confirm_close')
 
     def center_exit_dialog(self):
-        w,h=460,150
+        # Reserve room for titlebar, multiline details, controls, and DPI scaling.
+        # All three exit states share this safe dialog geometry.
+        w,h=500,220
         dpg.configure_item('confirm_close',width=w,height=h)
         dpg.set_item_pos('confirm_close',[
             max(0,(dpg.get_viewport_width()-w)//2),
