@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.11.8 - compact centered exit dialogs.
+KursiMu GUI v2.11.9 - confirm normal application exit.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -1143,6 +1143,15 @@ class KursiMuApp:
         with dpg.window(tag='confirm_close',label='KELUAR KURSIMU',modal=True,
                         show=False,no_resize=True,no_move=True,no_collapse=True,
                         no_scrollbar=True,width=460,height=150):
+            with dpg.group(tag='close_idle_group',show=False):
+                dpg.add_text('Yakin ingin keluar dari KursiMu?',color=INK)
+                dpg.add_text('Aplikasi akan ditutup.',color=MUTED)
+                dpg.add_spacer(height=12)
+                with dpg.group(horizontal=True):
+                    dpg.add_button(label='YA, KELUAR',width=190,
+                                   callback=lambda *args:dpg.stop_dearpygui())
+                    dpg.add_button(label='BATAL',width=130,
+                                   callback=lambda *args:dpg.hide_item('confirm_close'))
             with dpg.group(tag='close_normal_group'):
                 dpg.add_text('Yakin ingin menutup sesi KursiMu?',color=INK)
                 dpg.add_text('Hasil lengkap hanya disimpan jika BP AWAL & AKHIR tersedia.',
@@ -2056,17 +2065,15 @@ class KursiMuApp:
             self.handle_result(result)
 
     def request_close(self,*_):
-        # IDLE (including after SESI BARU) and FINISHED can close immediately.
-        # An active session or in-flight BP command requires confirmation.
-        if requires_exit_confirmation(self.session_state,
-                                      self.pending_target is not None):
-            self.dismiss_bp_progress()
-            dpg.show_item('close_normal_group')
-            dpg.hide_item('close_emergency_group')
-            self.center_exit_dialog()
-            dpg.show_item('confirm_close')
-        else:
-            dpg.stop_dearpygui()
+        # Every close request requires an explicit confirmation.
+        active=requires_exit_confirmation(self.session_state,
+                                          self.pending_target is not None)
+        self.dismiss_bp_progress()
+        dpg.configure_item('close_normal_group',show=active)
+        dpg.configure_item('close_emergency_group',show=False)
+        dpg.configure_item('close_idle_group',show=not active)
+        self.center_exit_dialog()
+        dpg.show_item('confirm_close')
 
     def center_exit_dialog(self):
         w,h=460,150
@@ -2079,6 +2086,7 @@ class KursiMuApp:
         # Keep ONE modal; nested modal stacks can swallow input on Win11.
         dpg.hide_item('close_normal_group')
         dpg.show_item('close_emergency_group')
+        dpg.hide_item('close_idle_group')
         self.center_exit_dialog()
 
     def cancel_emergency_confirmation(self,*_):
