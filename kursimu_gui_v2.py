@@ -1,5 +1,5 @@
 """
-KursiMu GUI v2.11.7 - friendly BP preparation guidance.
+KursiMu GUI v2.11.8 - compact centered exit dialogs.
 Windows 11 | Python 3.10+
 
 BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
@@ -1140,31 +1140,30 @@ class KursiMuApp:
             dpg.add_text('Menunggu respons perangkat BP...',tag='bp_progress_detail',
                          color=(42,38,30,255),wrap=355)
         dpg.bind_item_theme('bp_progress','theme_bp_yellow')
-        with dpg.window(tag='confirm_close',label='Konfirmasi Keluar',modal=True,
-                        show=False,no_resize=True,width=705,height=200):
+        with dpg.window(tag='confirm_close',label='KELUAR KURSIMU',modal=True,
+                        show=False,no_resize=True,no_move=True,no_collapse=True,
+                        no_scrollbar=True,width=460,height=150):
             with dpg.group(tag='close_normal_group'):
-                dpg.add_text('Sesi masih berlangsung. Simpan hanya jika BP AWAL dan AKHIR lengkap.')
-                dpg.add_text('Jika perangkat bermasalah, gunakan KELUAR DARURAT (tanpa ringkasan).',
-                             color=ORANGE)
-                dpg.add_spacer(height=14)
+                dpg.add_text('Yakin ingin menutup sesi KursiMu?',color=INK)
+                dpg.add_text('Hasil lengkap hanya disimpan jika BP AWAL & AKHIR tersedia.',
+                             color=MUTED,wrap=425)
+                dpg.add_spacer(height=8)
                 with dpg.group(horizontal=True):
-                    dpg.add_button(label='SIMPAN & TUTUP',width=205,
+                    dpg.add_button(label='SIMPAN & TUTUP',width=150,
                                    callback=self.confirm_close)
-                    dpg.add_button(label='KELUAR DARURAT',width=205,
+                    dpg.add_button(label='KELUAR DARURAT',width=155,
                                    callback=self.show_emergency_confirmation)
-                    dpg.add_button(label='BATAL',width=120,
+                    dpg.add_button(label='BATAL',width=95,
                                    callback=lambda *args:dpg.hide_item('confirm_close'))
             with dpg.group(tag='close_emergency_group',show=False):
-                dpg.add_text('KELUAR DARURAT: data pijakan yang sudah terekam dipertahankan.',
-                             color=RED)
-                dpg.add_text('Pengukuran BP boleh belum selesai; tidak akan dipaksa menunggu.',
-                             color=MUTED)
-                dpg.add_text('Sesi ditandai BELUM SELESAI, tanpa ringkasan palsu.',color=ORANGE)
-                dpg.add_spacer(height=9)
+                dpg.add_text('KELUAR DARURAT',color=RED)
+                dpg.add_text('Sesi ditandai belum selesai. Data yang ada dipertahankan.',
+                             color=MUTED,wrap=425)
+                dpg.add_spacer(height=8)
                 with dpg.group(horizontal=True):
-                    dpg.add_button(label='YA, KELUAR DARURAT',width=240,
+                    dpg.add_button(label='YA, KELUAR DARURAT',width=205,
                                    callback=self.emergency_close)
-                    dpg.add_button(label='KEMBALI',width=140,
+                    dpg.add_button(label='KEMBALI',width=110,
                                    callback=self.cancel_emergency_confirmation)
         dpg.bind_item_theme('confirm_close','theme_music_dialog')
         dpg.set_primary_window('main',True)
@@ -2064,18 +2063,28 @@ class KursiMuApp:
             self.dismiss_bp_progress()
             dpg.show_item('close_normal_group')
             dpg.hide_item('close_emergency_group')
+            self.center_exit_dialog()
             dpg.show_item('confirm_close')
         else:
             dpg.stop_dearpygui()
+
+    def center_exit_dialog(self):
+        w,h=460,150
+        dpg.configure_item('confirm_close',width=w,height=h)
+        dpg.set_item_pos('confirm_close',[
+            max(0,(dpg.get_viewport_width()-w)//2),
+            max(0,(dpg.get_viewport_height()-h)//2)])
 
     def show_emergency_confirmation(self,*_):
         # Keep ONE modal; nested modal stacks can swallow input on Win11.
         dpg.hide_item('close_normal_group')
         dpg.show_item('close_emergency_group')
+        self.center_exit_dialog()
 
     def cancel_emergency_confirmation(self,*_):
         dpg.hide_item('close_emergency_group')
         dpg.show_item('close_normal_group')
+        self.center_exit_dialog()
 
     def emergency_close(self,*_):
         # Explicit recovery path if a device fails mid-session.
