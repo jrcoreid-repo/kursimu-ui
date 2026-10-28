@@ -1,8 +1,8 @@
 """
-KursiMu GUI v2.11.19 - coordinated dynamic status cards.
+Korsimu GUI v1.0.0 Final - public brand correction.
 Windows 11 | Python 3.10+
 
-BP:  Seeed XIAO ESP32-C3, firmware KursiMu BLE V13.2
+BP:  Seeed XIAO ESP32-C3, firmware Korsimu BLE V13.2
      BLE 5 characteristic GATT protocol with CRC16 CCITT-FALSE.
 Foot: Arduino serial UART 115200; send a 0-100 integer, or LEVEL:NN.
 
@@ -263,7 +263,7 @@ class BPWorker:
         self.client = None
         self.last_status = 0.0
         self.cmd_lock: asyncio.Lock | None = None
-        self.thread = threading.Thread(target=self.thread_main, name="KursiMu-BLE", daemon=True)
+        self.thread = threading.Thread(target=self.thread_main, name="Korsimu-BLE", daemon=True)
 
     def start(self):
         self.thread.start()
@@ -428,7 +428,7 @@ class FootWorker:
         self.stop = threading.Event()
         self.port_lock = threading.Lock()
         self.selected_port: str | None = None
-        self.thread = threading.Thread(target=self.run, name="KursiMu-Serial", daemon=True)
+        self.thread = threading.Thread(target=self.run, name="Korsimu-Serial", daemon=True)
 
     def start(self):
         self.thread.start()
@@ -467,7 +467,7 @@ class FootWorker:
 
 
 
-class KursiMuApp:
+class KorsimuApp:
     """Three-panel desktop app. Only main GUI thread may call DPG APIs."""
 
     def __init__(self, demo: bool):
@@ -977,20 +977,20 @@ class KursiMuApp:
         dpg.bind_item_theme('footer_logos','theme_card')
 
     def apply_windows_icon(self):
-        """Replace Python's default titlebar/taskbar icon with KursiMu's icon."""
+        """Replace Python's default titlebar/taskbar icon with Korsimu's icon."""
         if sys.platform != 'win32':
             return
         icon_file = (Path(getattr(sys, '_MEIPASS', str(ROOT))) / 'assets' / 'kursimu.ico')
         if not icon_file.is_file():
             icon_file = ROOT / 'assets' / 'kursimu.ico'
         if not icon_file.is_file():
-            self.log('Ikon KursiMu tidak ditemukan: '+str(icon_file))
+            self.log('Ikon Korsimu tidak ditemukan: '+str(icon_file))
             return
         try:
             shell32 = ctypes.WinDLL('shell32', use_last_error=True)
             shell32.SetCurrentProcessExplicitAppUserModelID.argtypes=[ctypes.c_wchar_p]
             shell32.SetCurrentProcessExplicitAppUserModelID.restype=ctypes.c_long
-            shell32.SetCurrentProcessExplicitAppUserModelID('JRCoreLab.KursiMu')
+            shell32.SetCurrentProcessExplicitAppUserModelID('JRCoreLab.Korsimu')
             user32 = ctypes.WinDLL('user32', use_last_error=True)
             user32.FindWindowW.argtypes=[ctypes.c_wchar_p,ctypes.c_wchar_p]
             user32.FindWindowW.restype=ctypes.c_void_p
@@ -1001,7 +1001,7 @@ class KursiMuApp:
             user32.SendMessageW.argtypes=[ctypes.c_void_p,ctypes.c_uint,
                                         ctypes.c_size_t,ctypes.c_void_p]
             user32.SendMessageW.restype=ctypes.c_ssize_t
-            hwnd=user32.FindWindowW(None,'KursiMu - Smart Relaxation Monitoring')
+            hwnd=user32.FindWindowW(None,'Korsimu - Smart Relaxation Monitoring')
             if not hwnd:
                 self.log('Ikon: jendela aplikasi tidak ditemukan')
                 return
@@ -1020,7 +1020,7 @@ class KursiMuApp:
         self.create_themes()
         self.load_logos()
         width,height = self.screen_size()
-        dpg.create_viewport(title='KursiMu - Smart Relaxation Monitoring',
+        dpg.create_viewport(title='Korsimu - Smart Relaxation Monitoring',
                             width=width,height=height,x_pos=0,y_pos=0,
                             decorated=False,always_on_top=True,resizable=False,
                             clear_color=BG)
@@ -1031,7 +1031,7 @@ class KursiMuApp:
                 # Brand is intentionally the only headline; system information
                 # lives on a quieter second row.
                 with dpg.group(horizontal=True, tag='header'):
-                    dpg.add_text('KursiMu', tag='app_title', color=DARK_GREEN)
+                    dpg.add_text('Korsimu', tag='app_title', color=DARK_GREEN)
                     self.bind_font('app_title', 'title')
                     if self.demo:
                         dpg.add_spacer(width=12)
@@ -1041,7 +1041,7 @@ class KursiMuApp:
                     with dpg.child_window(tag='header_bp_box',width=260,height=48,
                                           border=True,no_scrollbar=True):
                         with dpg.group(horizontal=True):
-                            dpg.add_text('BP KursiMu',color=MUTED)
+                            dpg.add_text('BP Korsimu',color=MUTED)
                             dpg.add_text('DEMO' if self.demo else 'Mencari...',
                                          tag='ble_state',color=ORANGE)
                     with dpg.child_window(tag='header_foot_box',width=270,height=48,
@@ -1196,11 +1196,11 @@ class KursiMuApp:
             dpg.add_text('Menunggu respons perangkat BP...',tag='bp_progress_detail',
                          color=(42,38,30,255),wrap=355)
         dpg.bind_item_theme('bp_progress','theme_bp_yellow')
-        with dpg.window(tag='confirm_close',label='KELUAR KURSIMU',modal=True,
+        with dpg.window(tag='confirm_close',label='KELUAR KORSIMU',modal=True,
                         show=False,no_resize=True,no_move=True,no_collapse=True,
                         no_scrollbar=True,width=500,height=220):
             with dpg.group(tag='close_idle_group',show=False):
-                dpg.add_text('Yakin ingin keluar dari KursiMu?',color=INK)
+                dpg.add_text('Yakin ingin keluar dari Korsimu?',color=INK)
                 dpg.add_text('Aplikasi akan ditutup.',color=MUTED)
                 dpg.add_spacer(height=12)
                 with dpg.group(horizontal=True):
@@ -1209,7 +1209,7 @@ class KursiMuApp:
                     dpg.add_button(label='BATAL',width=130,
                                    callback=lambda *args:dpg.hide_item('confirm_close'))
             with dpg.group(tag='close_normal_group'):
-                dpg.add_text('Yakin ingin menutup sesi KursiMu?',color=INK)
+                dpg.add_text('Yakin ingin menutup sesi Korsimu?',color=INK)
                 dpg.add_text('Hasil lengkap hanya disimpan jika BP AWAL & AKHIR tersedia.',
                              color=MUTED,wrap=425)
                 dpg.add_spacer(height=8)
@@ -1481,7 +1481,7 @@ class KursiMuApp:
                 initial = self.music_path.parent if self.music_path and self.music_path.is_file() else MUSIC_DIR
                 file_path = filedialog.askopenfilename(
                     parent=root,
-                    title='Pilih musik relaksasi KursiMu',
+                    title='Pilih musik relaksasi Korsimu',
                     initialdir=str(initial),
                     filetypes=[
                         ('Audio MP3 / WAV / OGG', '*.mp3 *.wav *.ogg'),
@@ -1674,7 +1674,7 @@ class KursiMuApp:
             self.log('Sesi dijeda: musik dan pencatatan pijakan berhenti sementara')
         elif self.session_state=='PAUSED':
             if not d.can_resume:
-                self.log('LANJUTKAN ditolak: hubungkan BP KursiMu dahulu')
+                self.log('LANJUTKAN ditolak: hubungkan BP Korsimu dahulu')
                 return
             if self.audio_ready:
                 try:
@@ -2066,7 +2066,7 @@ class KursiMuApp:
             if not self.ble_connected:
                 self.bp_status=None
                 dpg.set_value('bp_state','TIDAK TERHUBUNG')
-                self.pause_on_disconnect('BP KursiMu')
+                self.pause_on_disconnect('BP Korsimu')
                 if self.pending_target:
                     self.show_bp_progress('KONEKSI TERPUTUS','Menunggu koneksi BP kembali.',auto_close_ms=4000)
             self.update_buttons()
@@ -2303,7 +2303,7 @@ class KursiMuApp:
 
 
 def main():
-    parser=argparse.ArgumentParser(description='KursiMu - DearPyGui white/green desktop')
+    parser=argparse.ArgumentParser(description='Korsimu - DearPyGui white/green desktop')
     parser.add_argument('--demo',action='store_true',help='Simulated sensor values (not actual measurements)')
     parser.add_argument('--test-music',action='store_true',
                         help='Diagnose MP3 discovery and decoding without opening the GUI')
@@ -2332,7 +2332,7 @@ def main():
         finally:
             pygame.mixer.quit()
         return
-    KursiMuApp(demo=args.demo).run()
+    KorsimuApp(demo=args.demo).run()
 
 
 if __name__=='__main__':
