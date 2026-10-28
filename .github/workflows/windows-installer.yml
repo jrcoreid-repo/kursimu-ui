@@ -1,4 +1,4 @@
-name: Build KursiMu Windows installer
+name: Build Korsimu Windows installer
 on:
   workflow_dispatch:
   push:
@@ -29,8 +29,8 @@ jobs:
       - name: Smoke test bundle files (no GUI)
         shell: pwsh
         run: |
-          if (!(Test-Path "dist/KursiMu/KursiMu.exe")) { throw "KursiMu.exe missing" }
-          if (!(Test-Path "dist/KursiMu/_internal/assets/kursimu.ico")) { throw "Icon missing in bundle" }
+          if (!(Test-Path "dist/Korsimu/Korsimu.exe")) { throw "Korsimu.exe missing" }
+          if (!(Test-Path "dist/Korsimu/_internal/assets/kursimu.ico")) { throw "Icon missing in bundle" }
           Write-Output "EXE and bundled icon present"
       - name: Build installer using Inno Setup
         shell: pwsh
@@ -42,13 +42,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Installer build failed" }
       - uses: actions/upload-artifact@v4
         with:
-          name: KursiMu-Windows-Portable
-          path: dist/KursiMu/
+          name: Korsimu-Windows-Portable
+          path: dist/Korsimu/
           if-no-files-found: error
           retention-days: 30
       - uses: actions/upload-artifact@v4
         with:
-          name: KursiMu-Windows-Installer
+          name: Korsimu-Windows-Installer
           path: dist/installer/*.exe
           if-no-files-found: error
           retention-days: 30
