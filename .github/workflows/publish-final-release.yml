@@ -1,0 +1,36 @@
+name: Publish Korsimu v1.0.0 Final Release
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/publish-final-release.yml"
+permissions:
+  contents: write
+  actions: read
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download verified Windows build artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download 40626717374 -R "${{ github.repository }}" -n Korsimu-Windows-Installer -D installer
+          gh run download 40626717374 -R "${{ github.repository }}" -n Korsimu-Windows-Portable -D portable
+          test -f installer/Korsimu_Setup_1.0.0_Final.exe
+          test -f portable/Korsimu.exe
+          cd portable
+          zip -qr ../Korsimu_Portable_1.0.0_Final_Windows_x64.zip .
+      - name: Publish stable release and binary assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create v1.0.0 \
+            "installer/Korsimu_Setup_1.0.0_Final.exe" \
+            "Korsimu_Portable_1.0.0_Final_Windows_x64.zip" \
+            --repo "${{ github.repository }}" \
+            --target "${{ github.sha }}" \
+            --title "Korsimu v1.0.0 — Final Release" \
+            --notes "Rilis stabil Korsimu untuk Windows 10/11 x64. Termasuk GUI, Bluetooth BP, Arduino serial, dan tiga logo. Pilih installer .exe untuk penggunaan normal atau ZIP portable. Nama BLE dan lokasi data lama tetap dipertahankan untuk kompatibilitas. Firmware V13.6 terpisah; tidak perlu diflash ulang. Installer belum ditandatangani digital. Musik pribadi tidak dibundel." \
+            --latest
